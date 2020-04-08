@@ -45,4 +45,4 @@ for f in os.listdir('./cogs'):
 bot.unload_extension('cogs.example')
 bot.unload_extension('cogs.tasks') # still has an error
 
-bot.run('NjkxMDExMzUwNjEyNDEwNDk5.XnZw5A.vEBluBOVNZY9X-fVvuf8SG46Dwk')
+bot.run('your token')
