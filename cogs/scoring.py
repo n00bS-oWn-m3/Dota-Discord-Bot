@@ -3,6 +3,7 @@ import requests
 import time
 import discord
 from discord.ext import commands
+import json
 
 
 # Defining a function to quickly calculate the average of a list
@@ -10,13 +11,14 @@ def average(list):
     return sum(list) / len(list)
 
 
+# A dictionary of our account ID's
+with open('usermapping.json') as f: 
+    usermapping = json.load(f)
+
+
 # Setting up a class
 # All it needs is a name from the hardcoded dictionary, amount of games to analyze and whether to print out individual match data are optional arguments
 class Scorecalc:
-
-    # A dictionary of our account ID's
-    USERMAPPING = {'Bram': '847020722', 'Sebastiaan': '850960158',
-                   'Stein': '237568387', 'Wout': '189996985'}
 
     # DOTA2 Constants
     HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
@@ -29,7 +31,7 @@ class Scorecalc:
         self.abandons = 0
         self.attempts = 0
 
-        self.account_id = self.USERMAPPING[f'{user}']
+        self.account_id = usermapping[f'{user}']
         self.amount_of_games = amount_of_games
         self.print_matches = print_matches
 
@@ -121,6 +123,11 @@ class Scorecalc:
 
 
 
+
+
+
+
+
 # Setting up the Scoring cog
 class Scoring(commands.Cog):
 
@@ -128,36 +135,52 @@ class Scoring(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def score(self, ctx, *, input=None, amount_of_games=5):
+    async def score(self, ctx, user=None, amount_of_games=5):
         
-        if input is None:
+        if user is None:
                 await ctx.send('Enter a name, and optionally an amount of games to process')
-        else:
-            input = input.split()
-
-        user = input[0]
-
-        if len(input) > 1:
-            amount_of_games = int(input[1])
+        
+        elif user not in usermapping.keys():
+            await ctx.send("That user isn't registered.")
+        
+        else: 
             score = Scorecalc(f'{user}', amount_of_games)
-        else:
-            score = Scorecalc(f'{user}')
 
-        score.calculate()
+            score.calculate()
 
-        await ctx.send(f"Average over {len(score.recent)} games: {round(average(score.recent),3)}")
+            await ctx.send(f"Average over {len(score.recent)} games: {round(average(score.recent),3)}")
+
+            if score.unparsed_matches == 1:
+                await ctx.send(f"{score.unparsed_matches} match has not been parsed yet, please try again in a few minutes for updated results.")
+            elif score.unparsed_matches > 1:
+                await ctx.send(f"{score.unparsed_matches} matches have not been parsed yet, please try again in a few minutes for updated results.")
+
+            if score.abandons == 1:
+                await ctx.send(f"{score.abandons} match was abandoned by someone, it was not taken into consideration.")
+            elif score.abandons > 1:
+                await ctx.send(f"{score.abandons} matches were abandoned by someone, they were not taken into consideration.")
 
 
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def register(self, ctx, user, id):
+        
+        if len(id) != 9 or isinstance(id, int):
+            await ctx.send("Please use the last part of a valid SteamID3.")
+        
+        else:   
+            usermap = {f'{user}': f'{id}'}    
 
-        if score.unparsed_matches == 1:
-            await ctx.send(f"{score.unparsed_matches} match has not been parsed yet, please try again in a few minutes for updated results.")
-        elif score.unparsed_matches > 1:
-            await ctx.send(f"{score.unparsed_matches} matches have not been parsed yet, please try again in a few minutes for updated results.")
+            with open('usermapping.json') as f: 
+                data = json.load(f)  
+            
+            data.update(usermap)
 
-        if score.abandons == 1:
-            await ctx.send(f"{score.abandons} match was abandoned by someone, it was not taken into consideration.")
-        elif score.abandons > 1:
-            await ctx.send(f"{score.abandons} matches were abandoned by someone, they were not taken into consideration.")
+            with open('usermapping.json', 'w') as f:
+                json.dump(data, f, indent=4)    
+
+
+            await ctx.send(f"User {user} registered with Steam ID {id}.")
 
 
 def setup(bot):
