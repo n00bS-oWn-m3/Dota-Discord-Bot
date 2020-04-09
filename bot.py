@@ -41,8 +41,10 @@ for f in os.listdir('./cogs'):
     if f.endswith('.py'):
         bot.load_extension(f'cogs.{f[:-3]}')
 
-# we don't want to display the example cog
+# We don't want to display the example cog
 bot.unload_extension('cogs.example')
-bot.unload_extension('cogs.tasks') # still has an error
 
-bot.run('your token')
+# Still has an error
+bot.unload_extension('cogs.tasks')
+
+bot.run('REDACTED')
