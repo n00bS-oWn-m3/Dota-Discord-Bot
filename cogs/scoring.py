@@ -76,7 +76,7 @@ class Scorecalc:
                     # Checking to see if the match has been parsed and any abandons have been registered
                     # I feel like there's a better way to go about this, but for now it'll do just fine
                     if self.player['ability_targets'] == None:
-                        if (self.match[0]['start_time'] - time.time()) > 1209600:
+                        if (time.time() - self.match[0]['start_time']) < 1209600:
                             # Posts a parse request to the opendota servers
                             requests.post(
                                 f'https://api.opendota.com/api/request/{self.match_id}')
