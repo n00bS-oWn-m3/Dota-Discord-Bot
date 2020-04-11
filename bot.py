@@ -43,4 +43,4 @@ for f in os.listdir('./cogs'):
 # we don't want to display the example cog
 bot.unload_extension('cogs.example')
 
-bot.run('NjkxMDExMzUwNjEyNDEwNDk5.Xo4buA.qSuwyD-TGApPuFh6RJxlIm0PiXE')
+bot.run('REDACTED')
