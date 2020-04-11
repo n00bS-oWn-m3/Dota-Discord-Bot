@@ -1,4 +1,3 @@
-import discord
 from discord.ext import commands
 import json
 import os
@@ -6,7 +5,7 @@ import os
 
 
 def get_prefix(client, message):
-    with open('prefixes.json', 'r') as f:
+    with open('resources/json_files/prefixes.json', 'r') as f:
         prefixes = json.load(f)
 
     return prefixes[str(message.guild.id)]
@@ -31,7 +30,7 @@ async def unload(ctx, extension):
 
 @bot.command()
 @commands.has_role('Dev')
-async def reload(ctx, extension):
+async def reload(ctx, extension): # bcs I'm lazy
     bot.unload_extension(f'cogs.{extension}')
     bot.load_extension(f'cogs.{extension}')
 
@@ -41,10 +40,7 @@ for f in os.listdir('./cogs'):
     if f.endswith('.py'):
         bot.load_extension(f'cogs.{f[:-3]}')
 
-# We don't want to display the example cog
+# we don't want to display the example cog
 bot.unload_extension('cogs.example')
 
-# Still has an error
-bot.unload_extension('cogs.tasks')
-
-bot.run('REDACTED')
+bot.run('NjkxMDExMzUwNjEyNDEwNDk5.Xo4buA.qSuwyD-TGApPuFh6RJxlIm0PiXE')

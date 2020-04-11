@@ -1,3 +1,4 @@
-
+venv
 *.pyc
-prefixes.json
+resources/json_files/prefixes.json
+resources/json_files/reactions.json

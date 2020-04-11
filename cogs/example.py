@@ -1,6 +1,5 @@
-import discord
 from discord.ext import commands
-from itertools import cycle
+
 
 # In case I forget the syntax of a cog, doesn't actually do anything
 class Example(commands.Cog):

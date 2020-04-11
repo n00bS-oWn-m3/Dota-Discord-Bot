@@ -1,0 +1,30 @@
+{
+  "Guardian": {
+    "MMR": "840 ~ 1560",
+    "Percentage": 15
+  },
+  "Crusader": {
+    "MMR": "1680 ~ 2400",
+    "Percentage": 30
+  },
+  "Archon": {
+    "MMR": "2520 ~ 3240",
+    "Percentage": 45
+  },
+  "Legend": {
+    "MMR": "3360 ~ 4080",
+    "Percentage": 60
+  },
+  "Ancient": {
+    "MMR": "4200 ~ 4920",
+    "Percentage": 75
+  },
+  "Divine": {
+    "MMR": "5040 ~ 5760",
+    "Percentage": 90
+  },
+  "Immortal": {
+    "MMR": "6000 +",
+    "Percentage": 100
+  }
+}

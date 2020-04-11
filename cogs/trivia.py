@@ -1,4 +1,3 @@
-import discord
 from discord.ext import commands
 import random
 
@@ -12,7 +11,7 @@ class Trivia(commands.Cog):
     async def ping(self, ctx):
         await ctx.send(f'Pong! {round(self.bot.latency * 1000)} ms')
 
-    @commands.command(aliases=['8ball'])
+    @commands.command(name='8ball', brief='In a doubt? Ask me!', description="If you're ever in a doubt, don't hesitate to question me!\nI'll enlighten you with my opinion!")
     async def _8ball(self, ctx, *, question=None):
         responses = ['As I see it, yes.',
                         'Ask again later.',
