@@ -1,8 +1,15 @@
 {
+  "Herald": {
+    "MMR": "0 ~ 720",
+    "Percentage interval": "0 - 29",
+    "Demotion upon": 0,
+    "Promotion upon": 30,
+    "image attachment":"attachment://herald.png"
+  },
   "Guardian": {
     "MMR": "840 ~ 1560",
-    "Percentage interval": "0 - 39",
-    "Demotion upon": 0,
+    "Percentage interval": "30 - 39",
+    "Demotion upon": 29,
     "Promotion upon": 40,
     "image attachment":"attachment://guardian.png"
   },

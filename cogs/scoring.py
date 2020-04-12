@@ -208,7 +208,7 @@ class Scoring(commands.Cog):
         self.bot = bot
 
     # return a nice embed of a requested match
-    @commands.command()
+    @commands.command(brief="Information of a match by a given ID", description="Information of a match by a given ID")
     async def match(self, ctx, match_id,  user=None):
         match = requests.get(f'https://api.opendota.com/api/matches/{match_id}').json()
         if match == {"error": "Not Found"}:
@@ -219,7 +219,6 @@ class Scoring(commands.Cog):
             await send_parse_request(match_id)
         if user is None: # get author of message
             user = ctx.message.author.mention
-            print(user)
         try:
             steamid = usermapping[f'{user}']
         except KeyError:
@@ -229,6 +228,18 @@ class Scoring(commands.Cog):
         if player is None: # didn't find any matching account_id
             await ctx.send(f"{user} doesn't seem to be a player in this game.")
             return
+
+        # notify if there were any abandons and/or if the game mode is considered unbalanced
+        warning_necessary = False
+        warning_notice = "> The game's statistics might be conflicting with reality due to:"
+        for p in match['players']:
+            if p['leaver_status'] >= 2:
+                warning_notice += "\n> --> Abandons"
+                warning_necessary = True
+                break
+        if not game_modes[str(player['game_mode'])]['balanced']:
+            warning_notice += "\n> --> Unbalanced Game-mode"
+            warning_necessary = True
 
         # data to create our intro
         hero = HEROES[str(player['hero_id'])]
@@ -261,6 +272,10 @@ class Scoring(commands.Cog):
         embed = discord.Embed(description=intro, color=297029, timestamp=datetime.datetime.utcfromtimestamp(match['start_time']))
         embed.set_author(name=player['personaname'] or "Anonymous", icon_url=hero_icon, url=f"https://www.opendota.com/players/{steamid}")
         bm = player['benchmarks']
+
+        # adding warning message, if necessary
+        if warning_necessary:
+            embed.add_field(name="**Warning**", value=warning_notice, inline=False)
 
         # adding the playstyle-indication
         embed.add_field(name=obtained_rank + " Player", value=playstyle_indication, inline=False)
@@ -297,10 +312,29 @@ class Scoring(commands.Cog):
         await ctx.send(embed=embed, file=icon)
 
 
+    @commands.command(brief="Information about your last match.",
+                      description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user.")
+    async def lastmatch(self, ctx, user=None, skip=0):
+        # might want to fix this copy of code
+        if user is None: # get author of message
+            user = ctx.message.author.mention
+        try:
+            steamid = usermapping[f'{user}']
+        except KeyError:
+            await ctx.send("User isn't registered.")
+            return
+
+        lastmatch = (requests.get(
+            f"https://api.opendota.com/api/players/{steamid}/matches/?limit=1&offset={skip}")).json()
+        lastmatch_id = lastmatch[0]['match_id']
+
+        await self.match(ctx, lastmatch_id, user=user)
 
 
-
-    @commands.command()
+    @commands.command(brief="Get the average score of a given amount of games.",
+                      description="Get the average score of a given amount of games.\n"
+                                  "Debug options:\n  1: Additional information (abandons & parses).\n"
+                                  "  2: Additional information printed to the terminal.")
     async def score(self, ctx, user=None, game_requests=5, debug=0):
         
         if user is None:
@@ -335,7 +369,7 @@ class Scoring(commands.Cog):
                 elif score.unparsed_old_matches > 1:
                     await ctx.send(f"{score.unparsed_old_matches} unparsed matches are older than two weeks and can't be parsed anymore.")
 
-    @commands.command()
+    @commands.command(brief="Link your Discord account to your Steam-ID.", description="Link your Discord account to your Steam-ID.")
     @commands.has_permissions(administrator=True)
     async def register(self, ctx, user, id):
         

@@ -7,22 +7,20 @@ class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
-
-#kicks and bans
-    @commands.command()
+    #kicks and bans
+    @commands.command(hidden=True)
     @commands.has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
         await member.kick(reason=reason)
         await ctx.send(f'Successfully kicked **{member.mention}**.')
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, member: discord.Member, *, reason=None):
         await member.ban(reason=reason)
         await ctx.send(f'Successfully banned **{member.mention}**.')
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.has_permissions(ban_members=True)
     async def unban(self, ctx, *, member):
         banned_users = await ctx.guild.bans()
@@ -36,8 +34,8 @@ class Admin(commands.Cog):
                 return
 
 
-# change prefix configurations (need to be a 'Dev')
-    @commands.command()
+    # change prefix configurations (need to be a 'Dev')
+    @commands.command(brief="Change the prefix of the bot.", description="Change the prefix of the bot.")
     @commands.has_role('Dev')
     async def change_prefix(self, ctx, prefix):
         with open('prefixes.json', 'r') as f:
