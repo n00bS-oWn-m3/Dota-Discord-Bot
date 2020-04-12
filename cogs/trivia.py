@@ -43,7 +43,19 @@ class Trivia(commands.Cog):
     async def clear(self, ctx, amount=1):
         await ctx.channel.purge(limit= amount + 1)
 
-
+    async def poll(self, ctx, *, message):
+        """
+        Still needs some fixing.
+        Can be used to get the reactions (yes / no) on a specific question.
+        To-do: enable the bot to read the changed reactions
+        """
+        message = await ctx.send(message)
+        emojis = ['✅', '❌']
+        for emoji in emojis:
+            await message.add_reaction(emoji)
+        res = await self.bot.wait_for_reaction(emoji=emojis, message=message)
+        if res:
+            print("Reaction received")
 
 def setup(bot):
     bot.add_cog(Trivia(bot))
