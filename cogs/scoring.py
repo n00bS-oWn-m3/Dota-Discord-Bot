@@ -265,21 +265,25 @@ class Scoring(commands.Cog):
         # adding the playstyle-indication
         embed.add_field(name=obtained_rank + " Player", value=playstyle_indication, inline=False)
 
-        # benchmarks information
-        bench_first = (f"**Gold**: __{round(bm['gold_per_min']['raw'], 2)}__ _({round(bm['gold_per_min']['pct'] * 100, 2)} %)_\n"
-                       f"**Experience**: __{round(bm['xp_per_min']['raw'], 2)}__ _({round(bm['xp_per_min']['pct'] * 100, 2)} %)_\n"
-                       f"**Kills**: __{round(bm['kills_per_min']['raw'], 2)}__  _({round(bm['kills_per_min']['pct'] * 100, 2)} %)_\n"
-                       f"**Last Hits**: __{round(bm['last_hits_per_min']['raw'], 2)}__  _({round(bm['last_hits_per_min']['pct'] * 100, 2)} %)_\n"
-                       f"**Hero Damage**: __{round(bm['hero_damage_per_min']['raw'], 2)}__  _({round(bm['hero_damage_per_min']['pct'] * 100, 2)} %)_\n")
+        # benchmarks headers
+        bench_first = ("**Gold**:\n""**Experience**:\n**Kills**:\n**Last Hits**:\n**Hero Damage**:\n"
+                       "**Hero Healing**:\n**Tower Damage**:\n**Stuns**:\n**Last Hits @ 10**:\n")
+        # benchmarks raw stats
+        bench_second = (f"{round(bm['gold_per_min']['raw'], 2)}\n{round(bm['xp_per_min']['raw'], 2)}\n{player['kills']}\n"
+                        f"{player['last_hits']}\n{round(bm['hero_damage_per_min']['raw'], 2)}\n{round(bm['hero_healing_per_min']['raw'], 2)}\n"
+                        f"{round(bm['tower_damage']['raw'], 2)}\n{round(player['stuns'], 2)}\n{round(bm['lhten']['raw'], 2)}\n")
+        # benchmarks percentage stats
+        bench_third = (f"{round(bm['gold_per_min']['pct'] * 100, 2)} %\n{round(bm['xp_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['kills_per_min']['pct'] * 100, 2)} %\n{round(bm['last_hits_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['hero_damage_per_min']['pct'] * 100, 2)} %\n{round(bm['hero_healing_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['tower_damage']['pct'] * 100, 2)} %\n{round(bm['stuns_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['lhten']['pct'] * 100, 2)} %\n")
 
-        bench_second = (f"**Hero Healing**: __{round(bm['hero_healing_per_min']['raw'], 2)}__ _({round(bm['hero_healing_per_min']['pct'] * 100, 2)} %)_\n"
-                        f"**Tower Damage**: __{round(bm['tower_damage']['raw'], 2)}__ _({round(bm['tower_damage']['pct'] * 100, 2)} %)_\n"
-                        f"**Stuns**: __{round(bm['stuns_per_min']['raw'], 2)}__ _({round(bm['stuns_per_min']['pct'] * 100, 2)} %)_\n"
-                        f"**Last Hits @10**: __{round(bm['lhten']['raw'], 2)}__ _({round(bm['lhten']['pct'] * 100, 2)} %)_\n")
 
         # adding benchmarks stats as 2 fields
-        embed.add_field(name="**Benchmarks**", value=bench_first)
-        embed.add_field(name="_", value=bench_second)
+        embed.add_field(name="**Benchmarks**", value=bench_first, inline=True)
+        embed.add_field(name="Values", value=bench_second, inline=True)
+        embed.add_field(name="Scores", value=bench_third, inline=True)
 
         # adding a thumbnail with the corresponding rank icon
         rank_icon = f"{obtained_rank.lower()}.png"
