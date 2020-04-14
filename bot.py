@@ -3,7 +3,6 @@ import json
 import os
 
 
-
 def get_prefix(client, message):
     with open('resources/json_files/prefixes.json', 'r') as f:
         prefixes = json.load(f)
@@ -17,20 +16,24 @@ async def on_ready():
     print(f'Ping: {round(bot.latency * 1000)} ms\nBot is ready.')
 
 
+
 # load, unload and reload help to enable and disable cogs
 @bot.command()
 @commands.has_role('Dev')
 async def load(ctx, extension):
+    """Load a specific cog"""
     bot.load_extension(f'cogs.{extension}')
 
 @bot.command()
 @commands.has_role('Dev')
 async def unload(ctx, extension):
+    """Unload a specific cog"""
     bot.unload_extension(f'cogs.{extension}')
 
 @bot.command()
 @commands.has_role('Dev')
 async def reload(ctx, extension): # bcs I'm lazy
+    """Unloads and loads a specific cog"""
     bot.unload_extension(f'cogs.{extension}')
     bot.load_extension(f'cogs.{extension}')
 

@@ -22,6 +22,11 @@ with open('resources/json_files/usermapping.json', 'r') as f:
 with open('resources/json_files/game_mode.json', 'r') as f:
     game_modes = json.load(f)
 
+# All ranks with extra information
+with open('resources/json_files/rankings.json', 'r') as f:
+    rankings = json.load(f)
+
+
 # request a parse by specific match-id
 async def send_parse_request(match_id):
     requests.post(f'https://api.opendota.com/api/request/{match_id}')
@@ -55,6 +60,13 @@ def timer_converter(seconds: int):
         return f"{result[0]} and {result[1]}"
     elif len(result) == 1: # up to seconds
         return f"{result[0]}"
+
+
+def average_benchmarks_single_match(player):
+    bench_list = []
+    for i in player['benchmarks'].values():
+        bench_list.append(i['pct'])
+    return round(average(bench_list) * 100, 2)
 
 
 # DOTA2 Constants
@@ -195,22 +207,8 @@ class Scoring(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def poll(self, ctx, *, message):
-        """
-        Still needs some fixing.
-        Can be used to get the reactions (yes / no) on a specific question.
-        To-do: enable the bot to read the changed reactions
-        """
-        message = await ctx.send(message)
-        emojis = ['✅', '❌']
-        for emoji in emojis:
-            await message.add_reaction(emoji)
-        res = await self.bot.wait_for_reaction(emoji=emojis, message=message)
-        if res:
-            print("Reaction received")
-
     # return a nice embed of a requested match
-    @commands.command()
+    @commands.command(brief="Information of a match by a given ID", description="Information of a match by a given ID")
     async def match(self, ctx, match_id,  user=None):
         match = requests.get(f'https://api.opendota.com/api/matches/{match_id}').json()
         if match == {"error": "Not Found"}:
@@ -221,7 +219,6 @@ class Scoring(commands.Cog):
             await send_parse_request(match_id)
         if user is None: # get author of message
             user = ctx.message.author.mention
-            print(user)
         try:
             steamid = usermapping[f'{user}']
         except KeyError:
@@ -232,72 +229,112 @@ class Scoring(commands.Cog):
             await ctx.send(f"{user} doesn't seem to be a player in this game.")
             return
 
-        # with all the checks out of the way we can start creating our embed
+        # notify if there were any abandons and/or if the game mode is considered unbalanced
+        warning_necessary = False
+        warning_notice = "> The game's statistics might be conflicting with reality due to:"
+        for p in match['players']:
+            if p['leaver_status'] >= 2:
+                warning_notice += "\n> --> Abandons"
+                warning_necessary = True
+                break
+        if not game_modes[str(player['game_mode'])]['balanced']:
+            warning_notice += "\n> --> Unbalanced Game-mode"
+            warning_necessary = True
+
+        # data to create our intro
         hero = HEROES[str(player['hero_id'])]
         hero_name = hero['localized_name']
-        hero_icon_name = f"dota_hero_{hero_name.lower().replace(' ', '_')}.png"
-        hero_icon = f"attachment://{hero_icon_name}"
+        hero_icon = f"http://cdn.dota2.com{hero['icon']}"
         duration = timer_converter(player['duration'])
         victory_status = "Lost" if player['win'] == 0 else "Won"
         game_mode = game_modes[str(player['game_mode'])]['name']
         game_mode_prefix = "an" if game_mode[0] in "aeiouAEIOU" else "a"
 
-        intro = f"{victory_status} {game_mode_prefix} **{game_mode}** match as {hero_name} in {duration}.\n" \
-                f"For more detailed information: [DotaBuff](https://www.dotabuff.com/matches/{match_id}), " \
-                f"[OpenDota](https://www.opendota.com/matches/{match_id}), or " \
-                f"[STRATZ](https://www.stratz.com/match/{match_id})"
+        intro = (f"{victory_status} {game_mode_prefix} **{game_mode}** match as {hero_name} in {duration}.\n"
+                 f"More information on [DotaBuff](https://www.dotabuff.com/matches/{match_id}), "
+                 f"[OpenDota](https://www.opendota.com/matches/{match_id}) or "
+                 f"[STRATZ](https://www.stratz.com/match/{match_id})")
 
+        # calculating average score + indication of how well you played
+        average_score = average_benchmarks_single_match(player)
+        obtained_rank = ""
 
+        for key in rankings: # calculating the rank
+            if rankings[key]['Demotion upon'] < average_score < rankings[key]['Promotion upon']:
+                obtained_rank = key
+                break
+
+        rank_prefix = "an" if obtained_rank[0] in "aeiouAEIOU" else "a"
+        playstyle_indication=(f">>> With a Score of **{average_score} %**, you played like {rank_prefix} **{obtained_rank}**")
 
 
         # the actual embed
-        # IMPORTANT still have to set icon_url (in embed.set_author) to corresponding hero icon.
         embed = discord.Embed(description=intro, color=297029, timestamp=datetime.datetime.utcfromtimestamp(match['start_time']))
         embed.set_author(name=player['personaname'] or "Anonymous", icon_url=hero_icon, url=f"https://www.opendota.com/players/{steamid}")
+        bm = player['benchmarks']
+
+        # adding warning message, if necessary
+        if warning_necessary:
+            embed.add_field(name="**Warning**", value=warning_notice, inline=False)
+
+        # adding the playstyle-indication
+        embed.add_field(name=obtained_rank + " Player", value=playstyle_indication, inline=False)
+
+        # benchmarks headers
+        bench_first = ("**Gold**:\n""**Experience**:\n**Kills**:\n**Last Hits**:\n**Hero Damage**:\n"
+                       "**Hero Healing**:\n**Tower Damage**:\n**Stuns**:\n**Last Hits @ 10**:\n")
+        # benchmarks raw stats
+        bench_second = (f"{round(bm['gold_per_min']['raw'], 2)}\n{round(bm['xp_per_min']['raw'], 2)}\n{player['kills']}\n"
+                        f"{player['last_hits']}\n{round(bm['hero_damage_per_min']['raw'], 2)}\n{round(bm['hero_healing_per_min']['raw'], 2)}\n"
+                        f"{round(bm['tower_damage']['raw'], 2)}\n{round(player['stuns'], 2)}\n{round(bm['lhten']['raw'], 2)}\n")
+        # benchmarks percentage stats
+        bench_third = (f"{round(bm['gold_per_min']['pct'] * 100, 2)} %\n{round(bm['xp_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['kills_per_min']['pct'] * 100, 2)} %\n{round(bm['last_hits_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['hero_damage_per_min']['pct'] * 100, 2)} %\n{round(bm['hero_healing_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['tower_damage']['pct'] * 100, 2)} %\n{round(bm['stuns_per_min']['pct'] * 100, 2)} %\n"
+                       f"{round(bm['lhten']['pct'] * 100, 2)} %\n")
 
 
-        damage_format = "KDA: **{kills}**/**{deaths}**/**{assists}**\n"
-        if player.get("hero_damage") is not None:
-            damage_format += "Hero Damage: {hero_damage:,}\n"
-        if player.get("hero_healing") is not None:
-            damage_format += "Hero Healing: {hero_healing:,}\n"
-        if player.get("tower_damage") is not None:
-            damage_format += "Tower Damage: {tower_damage:,}\n"
-        embed.add_field(name="Damage", value=damage_format.format(**player))
+        # adding benchmarks stats as 2 fields
+        embed.add_field(name="**Benchmarks**", value=bench_first, inline=True)
+        embed.add_field(name="Values", value=bench_second, inline=True)
+        embed.add_field(name="Scores", value=bench_third, inline=True)
 
-        embed.add_field(name="Economy", value=(
-            "Net Worth: {total_gold:,}\n"
-            "Last Hits: {last_hits:,}\n"
-            "Denies: {denies}\n"
-            "Level: {level}\n".format(**player)))
+        # adding a thumbnail with the corresponding rank icon
+        rank_icon = f"{obtained_rank.lower()}.png"
+        embed.set_thumbnail(url=f"attachment://{rank_icon}")
 
-        # Other information (doens't work yet)
-        # benchmarks = player['benchmarks']
-        #
-        # bench_first = ("GPM: {gold_per_min['raw']} ({round(gold_per_min['pct'] * 100, 2)})\n"
-        #                "XPM: {xp_per_min['raw']} ({round(xp_per_min['pct'] * 100, 2)})\n"
-        #                "KPM: {kills_per_min['raw']} ({round(kills_per_min['pct'] * 100, 2)})\n"
-        #                "LHM: {last_hits_per_min['raw']} ({round(last_hits_per_min['pct'] * 100, 2)})\n"
-        #                "HDM: {hero_damage_per_min['raw']} ({round(hero_damage_per_min['pct'] * 100, 2)})\n")
-        #
-        # bench_second = ("HHM: {hero_healing_per_min['raw']} ({round(hero_healing_per_min['pct'] * 100, 2)})\n"
-        #                 "TD: {tower_damage['raw']} ({round(tower_damage['pct'] * 100, 2)})\n"
-        #                 "SPM: {stuns_per_min['raw']} ({round(stuns_per_min['pct'] * 100, 2)})\n"
-        #                 "LH@10: {lhten['raw']} ({round(lhten['pct'] * 100, 2)})\n")
-
-        # embed.add_field(name="Benchmarks", value=bench_first.format(**benchmarks))
-        # embed.add_field(name="", value=bench_second.format(**benchmarks))
-
+        # adding a footer with the match-id (plus the timestamp from the match (see above))
         embed.set_footer(text=str(match_id))
-        # have to do this to be able to import a local (resources/hero_images) image
-        icon = discord.File(f"resources/hero_images/{hero_icon_name}", hero_icon_name)
+
+        # have to do this to be able to import a local (resources/ranks_images) image
+        icon = discord.File(f"resources/ranks_images/{rank_icon}", rank_icon)
         await ctx.send(embed=embed, file=icon)
 
 
+    @commands.command(brief="Information about your last match.",
+                      description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user.")
+    async def lastmatch(self, ctx, user=None, skip=0):
+        # might want to fix this copy of code
+        if user is None: # get author of message
+            user = ctx.message.author.mention
+        try:
+            steamid = usermapping[f'{user}']
+        except KeyError:
+            await ctx.send("User isn't registered.")
+            return
+
+        lastmatch = (requests.get(
+            f"https://api.opendota.com/api/players/{steamid}/matches/?limit=1&offset={skip}")).json()
+        lastmatch_id = lastmatch[0]['match_id']
+
+        await self.match(ctx, lastmatch_id, user=user)
 
 
-
-    @commands.command()
+    @commands.command(brief="Get the average score of a given amount of games.",
+                      description="Get the average score of a given amount of games.\n"
+                                  "Debug options:\n  1: Additional information (abandons & parses).\n"
+                                  "  2: Additional information printed to the terminal.")
     async def score(self, ctx, user=None, game_requests=5, debug=0):
         
         if user is None:
@@ -332,7 +369,7 @@ class Scoring(commands.Cog):
                 elif score.unparsed_old_matches > 1:
                     await ctx.send(f"{score.unparsed_old_matches} unparsed matches are older than two weeks and can't be parsed anymore.")
 
-    @commands.command()
+    @commands.command(brief="Link your Discord account to your Steam-ID.", description="Link your Discord account to your Steam-ID.")
     @commands.has_permissions(administrator=True)
     async def register(self, ctx, user, id):
         

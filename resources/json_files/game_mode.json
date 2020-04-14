@@ -31,27 +31,33 @@
   },
   "6": {
     "id": 6,
-    "name": "Intro"
+    "name": "Intro",
+    "balanced": false
   },
   "7": {
     "id": 7,
-    "name": "Diretide"
+    "name": "Diretide",
+    "balanced": false
   },
   "8": {
     "id": 8,
-    "name": "Reverse Captains Mode"
+    "name": "Reverse Captains Mode",
+    "balanced": false
   },
   "9": {
     "id": 9,
-    "name": "Greeviling"
+    "name": "Greeviling",
+    "balanced": false
   },
   "10": {
     "id": 10,
-    "name": "Tutorial"
+    "name": "Tutorial",
+    "balanced": false
   },
   "11": {
     "id": 11,
-    "name": "Mid Only"
+    "name": "Mid Only",
+    "balanced": false
   },
   "12": {
     "id": 12,
@@ -60,15 +66,18 @@
   },
   "13": {
     "id": 13,
-    "name": "Limited Heroes"
+    "name": "Limited Heroes",
+    "balanced": false
   },
   "14": {
     "id": 14,
-    "name": "Compendium Matchmaking"
+    "name": "Compendium Matchmaking",
+    "balanced": false
   },
   "15": {
     "id": 15,
-    "name": "Custom"
+    "name": "Custom",
+    "balanced": false
   },
   "16": {
     "id": 16,
@@ -82,19 +91,23 @@
   },
   "18": {
     "id": 18,
-    "name": "Ability Draft"
+    "name": "Ability Draft",
+    "balanced": false
   },
   "19": {
     "id": 19,
-    "name": "Event"
+    "name": "Event",
+    "balanced": false
   },
   "20": {
     "id": 20,
-    "name": "All Random Death Match"
+    "name": "All Random Death Match",
+    "balanced": false
   },
   "21": {
     "id": 21,
-    "name": "1v1 Mid"
+    "name": "1v1 Mid",
+    "balanced": false
   },
   "22": {
     "id": 22,
@@ -103,10 +116,12 @@
   },
   "23": {
     "id": 23,
-    "name": "Turbo"
+    "name": "Turbo",
+    "balanced": false
   },
   "24": {
     "id": 24,
-    "name": "Mutation"
+    "name": "Mutation",
+    "balanced": false
   }
 }

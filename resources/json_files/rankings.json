@@ -1,30 +1,58 @@
 {
+  "Herald": {
+    "MMR": "0 ~ 720",
+    "Percentage interval": "0 - 29",
+    "Demotion upon": 0,
+    "Promotion upon": 30,
+    "image attachment":"attachment://herald.png"
+  },
   "Guardian": {
     "MMR": "840 ~ 1560",
-    "Percentage": 15
+    "Percentage interval": "30 - 39",
+    "Demotion upon": 29,
+    "Promotion upon": 40,
+    "image attachment":"attachment://guardian.png"
   },
   "Crusader": {
     "MMR": "1680 ~ 2400",
-    "Percentage": 30
+    "Percentage interval": "40 - 49",
+    "Demotion upon": 39,
+    "Promotion upon": 50,
+    "image attachment":"attachment://crusader.png"
   },
   "Archon": {
     "MMR": "2520 ~ 3240",
-    "Percentage": 45
+    "Percentage interval": "50 - 59",
+    "Demotion upon": 49,
+    "Promotion upon": 60,
+    "image attachment":"attachment://archon.png"
   },
   "Legend": {
     "MMR": "3360 ~ 4080",
-    "Percentage": 60
+    "Percentage interval": "60 - 69",
+    "Demotion upon": 59,
+    "Promotion upon": 70,
+    "image attachment":"attachment://legend.png"
   },
   "Ancient": {
     "MMR": "4200 ~ 4920",
-    "Percentage": 75
+    "Percentage interval": "70 - 79",
+    "Demotion upon": 69,
+    "Promotion upon": 80,
+    "image attachment":"attachment://ancient.png"
   },
   "Divine": {
     "MMR": "5040 ~ 5760",
-    "Percentage": 90
+    "Percentage interval": "80 - 89",
+    "Demotion upon": 79,
+    "Promotion upon": 90,
+    "image attachment":"attachment://divine.png"
   },
   "Immortal": {
     "MMR": "6000 +",
-    "Percentage": 100
+    "Percentage interval": "90 - 100",
+    "Demotion upon": 89,
+    "Promotion upon": 100,
+    "image attachment":"attachment://immortal.png"
   }
 }
