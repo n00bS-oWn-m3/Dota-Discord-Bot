@@ -8,10 +8,8 @@ from discord.ext import commands
 import json
 
 
-# Defining a function to quickly calculate the average of a list
-def average(list):
-    return sum(list) / len(list)
-
+# DOTA2 Constants
+HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
 
 # A dictionary of our account ID's
 with open('resources/json_files/usermapping.json', 'r') as f:
@@ -29,9 +27,13 @@ with open('resources/json_files/lobby_type.json', 'r') as f:
 with open('resources/json_files/rankings.json', 'r') as f:
     rankings = json.load(f)
 
+
+# Defining a function to quickly calculate the average of a list
+def average(list):
+    return sum(list) / len(list)
+
+
 # Retrieves a match, whether it's cached or not
-
-
 def get_match(match_id):
     if os.path.isfile(f"resources/cached_matches/{match_id}.json"):
         with open(f"resources/cached_matches/{match_id}.json", 'r') as f:
@@ -47,21 +49,18 @@ def get_match(match_id):
         
         return matchdata
 
+
 # request a parse by specific match-id
-
-
 async def send_parse_request(match_id):
     requests.post(f'https://api.opendota.com/api/request/{match_id}')
 
+
 # check if a game is already parsed
-
-
 def is_parsed(match):
     return match.get('version', None) is not None
 
+
 # convert the time in seconds to a nice string (up to hours, since I don't reckon any dota game will be any longer)
-
-
 def timer_converter(seconds: int):
     seconds = abs(seconds)
     if seconds == 0:
@@ -87,7 +86,7 @@ def timer_converter(seconds: int):
     elif len(result) == 1:  # up to seconds
         return f"{result[0]}"
 
-
+# Returns the benc
 def average_benchmarks_single_match(player):
     bench_list = []
     for i in player['benchmarks'].values():
@@ -95,79 +94,34 @@ def average_benchmarks_single_match(player):
     return round(average(bench_list) * 100, 2)
 
 
-# DOTA2 Constants
-HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
 
 
-# Setting up a class
-# All it needs is a name from the hardcoded dictionary, amount of games to analyze and whether to print out individual match data are optional arguments
-class Scorecalc:
+# Returns a list of the average scores over the last 50 games
+def scorecalc(steamid, game_requests=50):
+    recent = []
+    amount_of_games = game_requests
+    
+    # Start of the main loop
+    with open("resources/json_files/tracked_matches.json", 'r') as f:
+        tracked_matches = json.load(f)
 
-    def __init__(self, user, game_requests=5, debug=0):
-        # Making empty variables and other setup
-        self.recent = []
-        self.benchmarks = []
-        self.unparsed_matches = 0
-        self.abandons = 0
-        self.attempts = 0
-        self.unparsed_old_matches = 0
+    if len(tracked_matches[str(steamid)]) < amount_of_games:
+        amount_of_games = len(tracked_matches[str(steamid)])
 
-        self.account_id = usermapping[f'{user}']
-        self.game_requests = game_requests
-        self.debug = debug
+    for a in range(amount_of_games):
+        with open(f"resources/cached_matches/{tracked_matches[str(steamid)][a]}.json", 'r') as f:
+            generaldata = json.load(f)
+        matchdata = generaldata['players']
 
-    def calculate(self):
-        # Start of the main loop
-        with open("resources/json_files/tracked_matches.json", 'r') as f:
-            self.tracked_matches = json.load(f)
+        # Gets the data of the requested user
+        player = next((p for p in matchdata if str(
+            p['account_id']) == steamid), None)
 
-        if len(self.tracked_matches[self.account_id]) < self.game_requests:
-            self.game_requests = len(self.tracked_matches[self.account_id])
-        while len(self.recent) < self.game_requests:
-
-            self.workable = True
-
-            #
-            self.match_id = self.tracked_matches[str(
-                self.account_id)][self.attempts]
-            with open(f"resources/cached_matches/{self.match_id}.json", 'r') as f:
-                self.generaldata = json.load(f)
-            self.matchdata = self.generaldata['players']
-
-            # Increments the attempts variable by one, it's used to always go back one game
-            self.attempts = self.attempts + 1
-
-            # Checks if any players have abandoned the game
-            for self.player_slot in range(10):
-                if self.matchdata[self.player_slot]['leaver_status'] >= 2:
-                    self.abandons += 1
-                    self.workable = False
-                break
-
-            # Gets the data of the requested user
-            self.player = next((p for p in self.matchdata if str(
-                p['account_id']) == self.account_id), None)
-
-            if self.workable == True:
-                # Saving the hero id to a variable
-                self.hero_id = self.player['hero_id']
-
-                # Storing all relevant benchmarks in a list
-                for i in self.player['benchmarks'].values():
-                    self.benchmarks.append(i['pct'])
-
-                # Calculating the score and appending it to a list
-                # Currently does work, thanks to Sebastiaan
-                self.recent.append(average(self.benchmarks) * 100)
-
-                # Printing out some simple data
-                if self.debug >= 2:
-                    print(f"Match ID: {self.match_id}")
-                    print(
-                        f"Hero: {HEROES[f'{self.hero_id}']['localized_name']}")
-                    print(
-                        f"Score: {round(self.recent[len(self.recent) - 1], 3)}")
-                    print()
+        # Calculating the score and appending it to a list
+        # Currently does work, thanks to Sebastiaan
+        recent.append(average_benchmarks_single_match(player))
+    
+    return recent
 
 
 # Setting up the Scoring cog
@@ -305,12 +259,11 @@ class Scoring(commands.Cog):
 
         await self.match(ctx, lastmatch_id, user=user)
 
-    @commands.command(brief="Get the average score of a given amount of games.",
-                      description="Get the average score of a given amount of games.\n"
-                                  "Debug options:\n  1: Additional information (abandons & parses).\n"
-                                  "  2: Additional information printed to the terminal.")
-    async def score(self, ctx, user=None, game_requests=25, debug=0):
 
+
+    @commands.command(brief="Get the average score over the last 50 games.")
+    async def score(self, ctx, user=None, game_requests=50):
+        
         if user is None:  # get author of message
             user = ctx.message.author.mention
         try:
@@ -319,20 +272,14 @@ class Scoring(commands.Cog):
             await ctx.send("User isn't registered.")
             return
 
-        score = Scorecalc(f'{user}', game_requests, debug)
+        score = scorecalc(steamid)
 
-        score.calculate()
+        await ctx.send(f"Average over {len(score)} games: {round(average(score),2)}")
 
-        await ctx.send(f"Average over {len(score.recent)} games: {round(average(score.recent),3)}")
+        if len(score) < game_requests:
+            await ctx.send(f"I could only find {len(score)} valid games to process instead of the usual {game_requests}.")
 
-        if len(score.recent) < game_requests:
-            await ctx.send(f"I could only find {len(score.recent)} valid games to process instead of the requested {game_requests}.")
 
-        if score.debug >= 1:
-            if score.abandons == 1:
-                await ctx.send(f"{score.abandons} match was abandoned by someone, it was not taken into consideration.")
-            elif score.abandons > 1:
-                await ctx.send(f"{score.abandons} matches were abandoned by someone, they were not taken into consideration.")
 
     @commands.command(brief="Link your Discord account to your Steam-ID.", description="Link your Discord account to your Steam-ID.")
     @commands.has_permissions(administrator=True)
