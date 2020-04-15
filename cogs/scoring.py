@@ -37,7 +37,15 @@ def get_match(match_id):
         with open(f"resources/cached_matches/{match_id}.json", 'r') as f:
             return json.load(f)
     else:
-        return requests.get(f'https://api.opendota.com/api/matches/{match_id}').json()
+        matchdata = requests.get(f'https://api.opendota.com/api/matches/{match_id}').json()
+        
+        while matchdata == {'error': 'rate limit exceeded'}:
+            print('The rate limit was passed')
+            time.sleep(5)
+            matchdata = (requests.get(
+                f"https://api.opendota.com/api/matches/{match_id}")).json()
+        
+        return matchdata
 
 # request a parse by specific match-id
 
@@ -359,8 +367,7 @@ class Scoring(commands.Cog):
         unparsed = 0
 
         # Removes duplicates from the list
-        # This looks horrible, there has to be a better way to do this?
-        steam_ids = list(dict.fromkeys(list(usermapping.values())))
+        steam_ids = list(set(usermapping.values()))
 
         for account_id in steam_ids:
             if os.path.isfile(f"resources/json_files/tracked_matches.json"):
@@ -399,7 +406,7 @@ class Scoring(commands.Cog):
                 else:
                     match_list.append(matches[i]['match_id'])
 
-            tracked_matches[account_id] = match_list
+            tracked_matches[account_id] = list(set(match_list))
             print(f"Done with {account_id}")
 
         with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
