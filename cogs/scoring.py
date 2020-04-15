@@ -254,7 +254,7 @@ class Scoring(commands.Cog):
             return
 
         lastmatch = (requests.get(
-            f"https://api.opendota.com/api/players/{steamid}/matches/?limit=1&offset={skip}")).json()
+            f"https://api.opendota.com/api/players/{steamid}/matches/?significant=0&limit=1&offset={skip}")).json()
         lastmatch_id = lastmatch[0]['match_id']
 
         await self.match(ctx, lastmatch_id, user=user)
@@ -302,65 +302,100 @@ class Scoring(commands.Cog):
             await ctx.send(f"User {user} registered with Steam ID {id}.")
 
     @commands.command(brief="Cache recent matches.")
-    async def cache(self, ctx, limit=50, offset=0):
+    async def cache(self, ctx, limit=50):
 
-        if os.path.isfile(f"resources/json_files/tracked_matches.json"):
-            with open('resources/json_files/tracked_matches.json', 'r') as f:
-                tracked_matches = json.load(f)
+        # Gets the tracked_matches dictionary or makes an empty one if it doesn't exist
+    if os.path.isfile(f"resources/json_files/tracked_matches.json"):
+        with open('resources/json_files/tracked_matches.json', 'r') as f:
+            tracked_matches = json.load(f)
+    else:
+        tracked_matches = {}
+
+    # Removes duplicates from the list
+    steam_ids = list(set(usermapping.values()))
+
+    # Main loop that iterates over all mapped steam id's
+    for steamid in steam_ids:
+        # Resets the cached variable
+        cached = 0
+
+        # Gets the tracked matches for a particular steam id
+        if steamid in tracked_matches.keys():
+            match_list = tracked_matches[steamid]
         else:
-            tracked_matches = {}
+            match_list = []
 
-        request = 0
-        unparsed = 0
+        # Gets the LIMIT most recent games with offset OFFSET
+        matches = (requests.get(
+            f"https://api.opendota.com/api/players/{steamid}/matches/")).json()
 
-        # Removes duplicates from the list
-        steam_ids = list(set(usermapping.values()))
-
-        for account_id in steam_ids:
-            if os.path.isfile(f"resources/json_files/tracked_matches.json"):
-                match_list = tracked_matches[account_id]
-            else:
-                match_list = []
-
+        # Rate limit error handling
+        while matches == {'error': 'rate limit exceeded'}:
+            print('The rate limit was passed')
+            time.sleep(5)
             matches = (requests.get(
-                f"https://api.opendota.com/api/players/{account_id}/matches/?limit={limit}&offset={offset}")).json()
+                f"https://api.opendota.com/api/players/{steamid}/matches/")).json()
 
-            while matches == {'error': 'rate limit exceeded'}:
-                print('The rate limit was passed')
-                time.sleep(5)
-                matches = (requests.get(
-                    f"https://api.opendota.com/api/players/{account_id}/matches/?limit={limit}&offset={offset}")).json()
+        # Iterates over all the matches retrieved in the previous bit
+        for i in range(len(matches)):
+            # Resets the abandon check
+            abandon = False
 
-            for i in range(len(matches)):
-                if not os.path.isfile(f"resources/cached_matches/{matches[i]['match_id']}.json") and game_modes[str(matches[i]['game_mode'])]['balanced'] and lobby_types[str(matches[i]['lobby_type'])]['balanced']:
+            # Checks if the match is stored and whether or not it's balanced
+            if not os.path.isfile(f"resources/cached_matches/{matches[i]['match_id']}.json"):
 
+                # Gets specific match data
+                matchdata = (requests.get(
+                    f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
+
+                # Rate limit error handling
+                while matchdata == {'error': 'rate limit exceeded'}:
+                    print('The rate limit was passed')
+                    time.sleep(5)
                     matchdata = (requests.get(
                         f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
-                    request += 1
-                    while matchdata == {'error': 'rate limit exceeded'}:
-                        print('The rate limit was passed')
-                        time.sleep(5)
-                        matchdata = (requests.get(
-                            f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
 
-                    if is_parsed(matchdata):
+                # Checks if the match is parsed
+                if not is_parsed(matchdata):
+                    # Checks if an unparsed match is older than a week
+                    if (time.time() - matchdata['start_time']) < 604800:
+                        # Sends a parse request
+                        send_parse_request(matches[i]['match_id'])
+                        print(
+                            f"A parse request for match {matches[i]['match_id']} was made")
+                else:
+                    # Checks for any abandons
+                    for p in matchdata['players']:
+                        if p['leaver_status'] >= 2:
+                            abandon = True
+                            break
+
+                    if abandon != True:
+                        # Saves the match id to the tracked match list of this steam id
                         match_list.append(matches[i]['match_id'])
+                        cached += 1
 
+                        # Saves the match as a JSON
                         with open(f"resources/cached_matches/{matches[i]['match_id']}.json", 'w') as jsonFile:
                             json.dump(matchdata, jsonFile)
-                    else:
-                        unparsed += 1
-                else:
-                    match_list.append(matches[i]['match_id'])
 
-            tracked_matches[account_id] = list(set(match_list))
-            print(f"Done with {account_id}")
+                        if cached >= 50:
+                            break
+            else:
+                # Saves the match id to the tracked match list of this steam id
+                match_list.append(matches[i]['match_id'])
+                cached += 1
+                if cached >= 50:
+                    break
 
-        with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
-            json.dump(tracked_matches, jsonFile)
-        print("Done with everyone!")
-        print(request)
-        print(unparsed)
+        # Overwrites the previous tracked matches list
+        tracked_matches[steamid] = list(set(match_list))
+        print(f"Done with {steamid}")
+
+    # Writes the tracked matches dictionary to the JSON
+    with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
+        json.dump(tracked_matches, jsonFile)
+    print("Done with everyone!")
 
 
 def setup(bot):
