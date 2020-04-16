@@ -260,10 +260,11 @@ class Scoring(commands.Cog):
         await self.match(ctx, lastmatch_id, user=user)
 
 
-
-    @commands.command(brief="Get the average score over the last 50 games.")
+    @commands.command()
     async def score(self, ctx, user=None, game_requests=50):
-        
+        """
+        Get a player's current rank and average score.
+        """
         if user is None:  # get author of message
             user = ctx.message.author.mention
         try:
@@ -271,14 +272,47 @@ class Scoring(commands.Cog):
         except KeyError:
             await ctx.send("User isn't registered.")
             return
+        recent = scorecalc(steamid)
+        average_score = round(average(recent), 2)
+        obtained_rank = ""
+        rank_color = ""
 
-        score = scorecalc(steamid)
+        for key in rankings:  # calculating the rank
+            if rankings[key]['Demotion upon'] < average_score < rankings[key]['Promotion upon']:
+                obtained_rank = key
+                rank_color = int(rankings[key]['color'])
+                break
+        rank_prefix = "an" if obtained_rank[0] in 'aeiouAEIOU' else "a"
+        dota_icon = ("https://gamepedia.cursecdn.com/dota2_gamepedia/8/8b/"
+                     "Main_Page_icon_Placeholder.png?version=74a035f90c52284616718c3a072c975c")
+        # need this to be able to acces the personaname
+        with open('resources/json_files/tracked_matches.json', 'r') as f:
+            tracked_matches = json.load(f)
+        # I get a random match from the user and extract the personaname from it.
+        # Might be a better way to do this
+        random_game = get_match(tracked_matches[steamid][0])
+        player_name = next((p['personaname'] for p in random_game['players'] if str(
+            p['account_id']) == steamid), None)
+        intro=f"Currently is {rank_prefix} **{obtained_rank}** with an Average Score of **{average_score}**"
 
-        await ctx.send(f"Average over {len(score)} games: {round(average(score),2)}")
+        embed = discord.Embed(description=intro, color=rank_color)
+        embed.set_author(name=player_name or "Anonymous", icon_url=dota_icon,
+                          url=f"https://www.opendota.com/players/{steamid}")
+        if len(recent) < game_requests:
+            note = (f">>> This score is based on only {len(recent)} games out of the requested {game_requests}.\n"
+                    f"No more valid games could be found.")
+            embed.add_field(name="**Note**", value=note, inline=False)
+        if game_requests != 50:
+            message = (f">>> This is not the actual score of the player,\nas normally a total of 50 games are taken into consideration.")
+            embed.add_field(name="**Custom Score**", value=message, inline=False)
+        embed.set_footer(text=steamid)
 
-        if len(score) < game_requests:
-            await ctx.send(f"I could only find {len(score)} valid games to process instead of the usual {game_requests}.")
+        # adding a thumbnail with the corresponding rank icon
+        rank_icon = f"{obtained_rank.lower()}.png"
+        embed.set_thumbnail(url=f"attachment://{rank_icon}")
+        icon = discord.File(f"resources/ranks_images/{rank_icon}", rank_icon)
 
+        await ctx.send(embed=embed, file=icon)
 
 
     @commands.command(brief="Link your Discord account to your Steam-ID.", description="Link your Discord account to your Steam-ID.")
