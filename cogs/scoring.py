@@ -263,7 +263,6 @@ class Scoring(commands.Cog):
 
         await self.match(ctx, lastmatch_id, user=user)
 
-
     @commands.command()
     async def score(self, ctx, user=None, game_requests=50):
         """
@@ -301,18 +300,21 @@ class Scoring(commands.Cog):
         random_game = get_match(tracked_matches[steamid][0])
         player_name = next((p['personaname'] for p in random_game['players'] if str(
             p['account_id']) == steamid), None)
-        intro=f"Currently is {rank_prefix} **{obtained_rank}** with an Average Score of **{average_score}**"
+        intro = f"Currently is {rank_prefix} **{obtained_rank}** with an Average Score of **{average_score}**"
 
         embed = discord.Embed(description=intro, color=rank_color)
         embed.set_author(name=player_name or "Anonymous", icon_url=dota_icon,
-                          url=f"https://www.opendota.com/players/{steamid}")
+                         url=f"https://www.opendota.com/players/{steamid}")
         if len(recent) < game_requests:
             note = (f">>> This score is based on only {len(recent)} games out of the requested {game_requests}.\n"
                     f"No more valid games could be found.")
-            embed.add_field(name="**Not Enough Games**", value=note, inline=False)
+            embed.add_field(name="**Not Enough Games**",
+                            value=note, inline=False)
         if game_requests != 50:
-            message = (f">>> This is not the actual score of the player,\nas normally a total of 50 games are taken into consideration.")
-            embed.add_field(name="**Custom Score**", value=message, inline=False)
+            message = (
+                f">>> This is not the actual score of the player,\nas normally a total of 50 games are taken into consideration.")
+            embed.add_field(name="**Custom Score**",
+                            value=message, inline=False)
         embed.set_footer(text=steamid)
 
         # adding a thumbnail with the corresponding rank icon
@@ -321,7 +323,6 @@ class Scoring(commands.Cog):
         icon = discord.File(f"resources/ranks_images/{rank_icon}", rank_icon)
 
         await ctx.send(embed=embed, file=icon)
-
 
     @commands.command(brief="Link your Discord account to your Steam-ID.", description="Link your Discord account to your Steam-ID.")
     @commands.has_permissions(administrator=True)
@@ -402,7 +403,8 @@ class Scoring(commands.Cog):
                         # Checks if an unparsed match is older than a week
                         if (time.time() - matchdata['start_time']) < 604800:
                             # Sends a parse request
-                            await send_parse_request(matches[i]['match_id'])
+                            # await
+                            send_parse_request(matches[i]['match_id'])
                             print(
                                 f"A parse request for match {matches[i]['match_id']} was made")
                     else:
@@ -419,24 +421,43 @@ class Scoring(commands.Cog):
 
                             # Saves the match as a JSON
                             with open(f"resources/cached_matches/{matches[i]['match_id']}.json", 'w') as jsonFile:
-                                json.dump(matchdata, jsonFile, indent=4)
+                                json.dump(matchdata, jsonFile)
 
-                            if cached >= 50:
+                            if cached >= limit:
                                 break
                 else:
                     # Saves the match id to the tracked match list of this steam id
                     match_list.append(matches[i]['match_id'])
                     cached += 1
-                    if cached >= 50:
+                    if cached >= limit:
                         break
 
+            # Trims the match_list to 50 elements
+            if len(list(set(match_list))) > limit:
+                match_list = list(set(match_list))[:limit]
+            else:
+                match_list = list(set(match_list))
+
             # Overwrites the previous tracked matches list
-            tracked_matches[steamid] = list(set(match_list))
+            tracked_matches[steamid] = match_list
             print(f"Done with {steamid}")
 
         # Writes the tracked matches dictionary to the JSON
         with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
-            json.dump(tracked_matches, jsonFile, indent=4)
+            json.dump(tracked_matches, jsonFile)
+
+        saved_matches = []
+        for steamid in steam_ids:
+            for i in range(len(tracked_matches[steamid])):
+                saved_matches.append(f"{tracked_matches[steamid][i]}.json")
+
+        delete = list((set(os.listdir("resources/cached_matches")
+                           ) - {".gitkeep"}) - set(saved_matches))
+
+        for d in delete:
+            os.remove("resources/cached_matches/" + d)
+            print(f"Deleted {d}")
+
         print("Done with everyone!")
 
 
