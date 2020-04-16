@@ -47,7 +47,8 @@ def get_match(match_id):
             time.sleep(5)
             matchdata = (requests.get(
                 f"https://api.opendota.com/api/matches/{match_id}")).json()
-
+        with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
+            json.dump(matchdata, jsonFile)
         return matchdata
 
 
@@ -186,10 +187,12 @@ class Scoring(commands.Cog):
         # calculating average score + indication of how well you played
         average_score = average_benchmarks_single_match(player)
         obtained_rank = ""
+        rank_color = ""
 
         for key in rankings:  # calculating the rank
             if rankings[key]['Demotion upon'] < average_score < rankings[key]['Promotion upon']:
                 obtained_rank = key
+                rank_color = int(rankings[key]['color'])
                 break
 
         rank_prefix = "an" if obtained_rank[0] in "aeiouAEIOU" else "a"
@@ -197,7 +200,7 @@ class Scoring(commands.Cog):
             f">>> With a Score of **{average_score} %**, you played like {rank_prefix} **{obtained_rank}**")
 
         # the actual embed
-        embed = discord.Embed(description=intro, color=297029,
+        embed = discord.Embed(description=intro, color=rank_color,
                               timestamp=datetime.datetime.utcfromtimestamp(match['start_time']))
         embed.set_author(name=player['personaname'] or "Anonymous",
                          icon_url=hero_icon, url=f"https://www.opendota.com/players/{steamid}")
@@ -265,7 +268,11 @@ class Scoring(commands.Cog):
     async def score(self, ctx, user=None, game_requests=50):
         """
         Get a player's current rank and average score.
+        Supports up to 50 games.
         """
+        if game_requests > 50:
+            await ctx.send("This command only supports up to 50 games.\nPlease request a valid amount.")
+            return
         if user is None:  # get author of message
             user = ctx.message.author.mention
         try:
@@ -302,7 +309,7 @@ class Scoring(commands.Cog):
         if len(recent) < game_requests:
             note = (f">>> This score is based on only {len(recent)} games out of the requested {game_requests}.\n"
                     f"No more valid games could be found.")
-            embed.add_field(name="**Note**", value=note, inline=False)
+            embed.add_field(name="**Not Enough Games**", value=note, inline=False)
         if game_requests != 50:
             message = (f">>> This is not the actual score of the player,\nas normally a total of 50 games are taken into consideration.")
             embed.add_field(name="**Custom Score**", value=message, inline=False)
@@ -395,7 +402,7 @@ class Scoring(commands.Cog):
                         # Checks if an unparsed match is older than a week
                         if (time.time() - matchdata['start_time']) < 604800:
                             # Sends a parse request
-                            send_parse_request(matches[i]['match_id'])
+                            await send_parse_request(matches[i]['match_id'])
                             print(
                                 f"A parse request for match {matches[i]['match_id']} was made")
                     else:
@@ -412,7 +419,7 @@ class Scoring(commands.Cog):
 
                             # Saves the match as a JSON
                             with open(f"resources/cached_matches/{matches[i]['match_id']}.json", 'w') as jsonFile:
-                                json.dump(matchdata, jsonFile)
+                                json.dump(matchdata, jsonFile, indent=4)
 
                             if cached >= 50:
                                 break
@@ -429,7 +436,7 @@ class Scoring(commands.Cog):
 
         # Writes the tracked matches dictionary to the JSON
         with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
-            json.dump(tracked_matches, jsonFile)
+            json.dump(tracked_matches, jsonFile, indent=4)
         print("Done with everyone!")
 
 
