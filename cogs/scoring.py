@@ -47,8 +47,9 @@ def get_match(match_id):
             time.sleep(5)
             matchdata = (requests.get(
                 f"https://api.opendota.com/api/matches/{match_id}")).json()
-        with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
-            json.dump(matchdata, jsonFile)
+        if is_parsed(matchdata):
+            with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
+                json.dump(matchdata, jsonFile)
         return matchdata
 
 
