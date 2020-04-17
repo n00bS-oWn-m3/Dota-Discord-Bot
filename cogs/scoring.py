@@ -404,8 +404,7 @@ class Scoring(commands.Cog):
                         # Checks if an unparsed match is older than a week
                         if (time.time() - matchdata['start_time']) < 604800:
                             # Sends a parse request
-                            # await
-                            send_parse_request(matches[i]['match_id'])
+                            await send_parse_request(matches[i]['match_id'])
                             print(
                                 f"A parse request for match {matches[i]['match_id']} was made")
                     else:
@@ -435,9 +434,9 @@ class Scoring(commands.Cog):
 
             # Trims the match_list to 50 elements
             if len(list(set(match_list))) > limit:
-                match_list = list(set(match_list))[:limit]
+                match_list = sorted(set(match_list), reverse=True)[:limit]
             else:
-                match_list = list(set(match_list))
+                match_list = sorted(set(match_list), reverse=True)
 
             # Overwrites the previous tracked matches list
             tracked_matches[steamid] = match_list
