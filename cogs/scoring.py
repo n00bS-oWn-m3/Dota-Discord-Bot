@@ -280,7 +280,7 @@ class Scoring(commands.Cog):
         except KeyError:
             await ctx.send("User isn't registered.")
             return
-        recent = scorecalc(steamid)
+        recent = scorecalc(steamid, game_requests)
         average_score = round(average(recent), 2)
         obtained_rank = ""
         rank_color = ""
