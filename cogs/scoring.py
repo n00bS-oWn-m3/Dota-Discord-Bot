@@ -8,10 +8,8 @@ from discord.ext import commands
 import json
 
 
-# Defining a function to quickly calculate the average of a list
-def average(list):
-    return sum(list) / len(list)
-
+# DOTA2 Constants
+HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
 
 # A dictionary of our account ID's
 with open('resources/json_files/usermapping.json', 'r') as f:
@@ -29,31 +27,43 @@ with open('resources/json_files/lobby_type.json', 'r') as f:
 with open('resources/json_files/rankings.json', 'r') as f:
     rankings = json.load(f)
 
+
+# Defining a function to quickly calculate the average of a list
+def average(list):
+    return sum(list) / len(list)
+
+
 # Retrieves a match, whether it's cached or not
-
-
 def get_match(match_id):
     if os.path.isfile(f"resources/cached_matches/{match_id}.json"):
         with open(f"resources/cached_matches/{match_id}.json", 'r') as f:
             return json.load(f)
     else:
-        return requests.get(f'https://api.opendota.com/api/matches/{match_id}').json()
+        matchdata = requests.get(
+            f'https://api.opendota.com/api/matches/{match_id}').json()
+
+        while matchdata == {'error': 'rate limit exceeded'}:
+            print('The rate limit was passed')
+            time.sleep(5)
+            matchdata = (requests.get(
+                f"https://api.opendota.com/api/matches/{match_id}")).json()
+        if is_parsed(matchdata):
+            with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
+                json.dump(matchdata, jsonFile)
+        return matchdata
+
 
 # request a parse by specific match-id
-
-
 async def send_parse_request(match_id):
     requests.post(f'https://api.opendota.com/api/request/{match_id}')
 
+
 # check if a game is already parsed
-
-
 def is_parsed(match):
     return match.get('version', None) is not None
 
+
 # convert the time in seconds to a nice string (up to hours, since I don't reckon any dota game will be any longer)
-
-
 def timer_converter(seconds: int):
     seconds = abs(seconds)
     if seconds == 0:
@@ -79,6 +89,8 @@ def timer_converter(seconds: int):
     elif len(result) == 1:  # up to seconds
         return f"{result[0]}"
 
+# Returns the benc
+
 
 def average_benchmarks_single_match(player):
     bench_list = []
@@ -87,79 +99,32 @@ def average_benchmarks_single_match(player):
     return round(average(bench_list) * 100, 2)
 
 
-# DOTA2 Constants
-HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
+# Returns a list of the average scores over the last 50 games
+def scorecalc(steamid, game_requests=50):
+    recent = []
+    amount_of_games = game_requests
 
+    # Start of the main loop
+    with open("resources/json_files/tracked_matches.json", 'r') as f:
+        tracked_matches = json.load(f)
 
-# Setting up a class
-# All it needs is a name from the hardcoded dictionary, amount of games to analyze and whether to print out individual match data are optional arguments
-class Scorecalc:
+    if len(tracked_matches[str(steamid)]) < amount_of_games:
+        amount_of_games = len(tracked_matches[str(steamid)])
 
-    def __init__(self, user, game_requests=5, debug=0):
-        # Making empty variables and other setup
-        self.recent = []
-        self.benchmarks = []
-        self.unparsed_matches = 0
-        self.abandons = 0
-        self.attempts = 0
-        self.unparsed_old_matches = 0
+    for a in range(amount_of_games):
+        with open(f"resources/cached_matches/{tracked_matches[str(steamid)][a]}.json", 'r') as f:
+            generaldata = json.load(f)
+        matchdata = generaldata['players']
 
-        self.account_id = usermapping[f'{user}']
-        self.game_requests = game_requests
-        self.debug = debug
+        # Gets the data of the requested user
+        player = next((p for p in matchdata if str(
+            p['account_id']) == steamid), None)
 
-    def calculate(self):
-        # Start of the main loop
-        with open("resources/json_files/tracked_matches.json", 'r') as f:
-            self.tracked_matches = json.load(f)
+        # Calculating the score and appending it to a list
+        # Currently does work, thanks to Sebastiaan
+        recent.append(average_benchmarks_single_match(player))
 
-        if len(self.tracked_matches[self.account_id]) < self.game_requests:
-            self.game_requests = len(self.tracked_matches[self.account_id])
-        while len(self.recent) < self.game_requests:
-
-            self.workable = True
-
-            #
-            self.match_id = self.tracked_matches[str(
-                self.account_id)][self.attempts]
-            with open(f"resources/cached_matches/{self.match_id}.json", 'r') as f:
-                self.generaldata = json.load(f)
-            self.matchdata = self.generaldata['players']
-
-            # Increments the attempts variable by one, it's used to always go back one game
-            self.attempts = self.attempts + 1
-
-            # Checks if any players have abandoned the game
-            for self.player_slot in range(10):
-                if self.matchdata[self.player_slot]['leaver_status'] >= 2:
-                    self.abandons += 1
-                    self.workable = False
-                break
-
-            # Gets the data of the requested user
-            self.player = next((p for p in self.matchdata if str(
-                p['account_id']) == self.account_id), None)
-
-            if self.workable == True:
-                # Saving the hero id to a variable
-                self.hero_id = self.player['hero_id']
-
-                # Storing all relevant benchmarks in a list
-                for i in self.player['benchmarks'].values():
-                    self.benchmarks.append(i['pct'])
-
-                # Calculating the score and appending it to a list
-                # Currently does work, thanks to Sebastiaan
-                self.recent.append(average(self.benchmarks) * 100)
-
-                # Printing out some simple data
-                if self.debug >= 2:
-                    print(f"Match ID: {self.match_id}")
-                    print(
-                        f"Hero: {HEROES[f'{self.hero_id}']['localized_name']}")
-                    print(
-                        f"Score: {round(self.recent[len(self.recent) - 1], 3)}")
-                    print()
+    return recent
 
 
 # Setting up the Scoring cog
@@ -223,10 +188,12 @@ class Scoring(commands.Cog):
         # calculating average score + indication of how well you played
         average_score = average_benchmarks_single_match(player)
         obtained_rank = ""
+        rank_color = ""
 
         for key in rankings:  # calculating the rank
             if rankings[key]['Demotion upon'] < average_score < rankings[key]['Promotion upon']:
                 obtained_rank = key
+                rank_color = int(rankings[key]['color'])
                 break
 
         rank_prefix = "an" if obtained_rank[0] in "aeiouAEIOU" else "a"
@@ -234,7 +201,7 @@ class Scoring(commands.Cog):
             f">>> With a Score of **{average_score} %**, you played like {rank_prefix} **{obtained_rank}**")
 
         # the actual embed
-        embed = discord.Embed(description=intro, color=297029,
+        embed = discord.Embed(description=intro, color=rank_color,
                               timestamp=datetime.datetime.utcfromtimestamp(match['start_time']))
         embed.set_author(name=player['personaname'] or "Anonymous",
                          icon_url=hero_icon, url=f"https://www.opendota.com/players/{steamid}")
@@ -292,17 +259,20 @@ class Scoring(commands.Cog):
             return
 
         lastmatch = (requests.get(
-            f"https://api.opendota.com/api/players/{steamid}/matches/?limit=1&offset={skip}")).json()
+            f"https://api.opendota.com/api/players/{steamid}/matches/?significant=0&limit=1&offset={skip}")).json()
         lastmatch_id = lastmatch[0]['match_id']
 
         await self.match(ctx, lastmatch_id, user=user)
 
-    @commands.command(brief="Get the average score of a given amount of games.",
-                      description="Get the average score of a given amount of games.\n"
-                                  "Debug options:\n  1: Additional information (abandons & parses).\n"
-                                  "  2: Additional information printed to the terminal.")
-    async def score(self, ctx, user=None, game_requests=25, debug=0):
-
+    @commands.command()
+    async def score(self, ctx, user=None, game_requests=50):
+        """
+        Get a player's current rank and average score.
+        Supports up to 50 games.
+        """
+        if game_requests > 50:
+            await ctx.send("This command only supports up to 50 games.\nPlease request a valid amount.")
+            return
         if user is None:  # get author of message
             user = ctx.message.author.mention
         try:
@@ -310,21 +280,50 @@ class Scoring(commands.Cog):
         except KeyError:
             await ctx.send("User isn't registered.")
             return
+        recent = scorecalc(steamid, game_requests)
+        average_score = round(average(recent), 2)
+        obtained_rank = ""
+        rank_color = ""
 
-        score = Scorecalc(f'{user}', game_requests, debug)
+        for key in rankings:  # calculating the rank
+            if rankings[key]['Demotion upon'] < average_score < rankings[key]['Promotion upon']:
+                obtained_rank = key
+                rank_color = int(rankings[key]['color'])
+                break
+        rank_prefix = "an" if obtained_rank[0] in 'aeiouAEIOU' else "a"
+        dota_icon = ("https://gamepedia.cursecdn.com/dota2_gamepedia/8/8b/"
+                     "Main_Page_icon_Placeholder.png?version=74a035f90c52284616718c3a072c975c")
+        # need this to be able to acces the personaname
+        with open('resources/json_files/tracked_matches.json', 'r') as f:
+            tracked_matches = json.load(f)
+        # I get a random match from the user and extract the personaname from it.
+        # Might be a better way to do this
+        random_game = get_match(tracked_matches[steamid][0])
+        player_name = next((p['personaname'] for p in random_game['players'] if str(
+            p['account_id']) == steamid), None)
+        intro = f"Currently is {rank_prefix} **{obtained_rank}** with an Average Score of **{average_score}**"
 
-        score.calculate()
+        embed = discord.Embed(description=intro, color=rank_color)
+        embed.set_author(name=player_name or "Anonymous", icon_url=dota_icon,
+                         url=f"https://www.opendota.com/players/{steamid}")
+        if len(recent) < game_requests:
+            note = (f">>> This score is based on only {len(recent)} games out of the requested {game_requests}.\n"
+                    f"No more valid games could be found.")
+            embed.add_field(name="**Not Enough Games**",
+                            value=note, inline=False)
+        if game_requests != 50:
+            message = (
+                f">>> This is not the actual score of the player,\nas normally a total of 50 games are taken into consideration.")
+            embed.add_field(name="**Custom Score**",
+                            value=message, inline=False)
+        embed.set_footer(text=steamid)
 
-        await ctx.send(f"Average over {len(score.recent)} games: {round(average(score.recent),3)}")
+        # adding a thumbnail with the corresponding rank icon
+        rank_icon = f"{obtained_rank.lower()}.png"
+        embed.set_thumbnail(url=f"attachment://{rank_icon}")
+        icon = discord.File(f"resources/ranks_images/{rank_icon}", rank_icon)
 
-        if len(score.recent) < game_requests:
-            await ctx.send(f"I could only find {len(score.recent)} valid games to process instead of the requested {game_requests}.")
-
-        if score.debug >= 1:
-            if score.abandons == 1:
-                await ctx.send(f"{score.abandons} match was abandoned by someone, it was not taken into consideration.")
-            elif score.abandons > 1:
-                await ctx.send(f"{score.abandons} matches were abandoned by someone, they were not taken into consideration.")
+        await ctx.send(embed=embed, file=icon)
 
     @commands.command(brief="Link your Discord account to your Steam-ID.", description="Link your Discord account to your Steam-ID.")
     @commands.has_permissions(administrator=True)
@@ -347,66 +346,119 @@ class Scoring(commands.Cog):
             await ctx.send(f"User {user} registered with Steam ID {id}.")
 
     @commands.command(brief="Cache recent matches.")
-    async def cache(self, ctx, limit=50, offset=0):
+    async def cache(self, ctx, limit=50):
 
+        # Gets the tracked_matches dictionary or makes an empty one if it doesn't exist
         if os.path.isfile(f"resources/json_files/tracked_matches.json"):
             with open('resources/json_files/tracked_matches.json', 'r') as f:
                 tracked_matches = json.load(f)
         else:
             tracked_matches = {}
 
-        request = 0
-        unparsed = 0
-
         # Removes duplicates from the list
-        # This looks horrible, there has to be a better way to do this?
-        steam_ids = list(dict.fromkeys(list(usermapping.values())))
+        steam_ids = list(set(usermapping.values()))
 
-        for account_id in steam_ids:
-            if os.path.isfile(f"resources/json_files/tracked_matches.json"):
-                match_list = tracked_matches[account_id]
+        # Main loop that iterates over all mapped steam id's
+        for steamid in steam_ids:
+            # Resets the cached variable
+            cached = 0
+
+            # Gets the tracked matches for a particular steam id
+            if steamid in tracked_matches.keys():
+                match_list = tracked_matches[steamid]
             else:
                 match_list = []
 
+            # Gets the LIMIT most recent games with offset OFFSET
             matches = (requests.get(
-                f"https://api.opendota.com/api/players/{account_id}/matches/?limit={limit}&offset={offset}")).json()
+                f"https://api.opendota.com/api/players/{steamid}/matches/")).json()
 
+            # Rate limit error handling
             while matches == {'error': 'rate limit exceeded'}:
                 print('The rate limit was passed')
                 time.sleep(5)
                 matches = (requests.get(
-                    f"https://api.opendota.com/api/players/{account_id}/matches/?limit={limit}&offset={offset}")).json()
+                    f"https://api.opendota.com/api/players/{steamid}/matches/")).json()
 
+            # Iterates over all the matches retrieved in the previous bit
             for i in range(len(matches)):
-                if not os.path.isfile(f"resources/cached_matches/{matches[i]['match_id']}.json") and game_modes[str(matches[i]['game_mode'])]['balanced'] and lobby_types[str(matches[i]['lobby_type'])]['balanced']:
+                # Resets the abandon check
+                abandon = False
 
+                # Checks if the match is stored and whether or not it's balanced
+                if not os.path.isfile(f"resources/cached_matches/{matches[i]['match_id']}.json"):
+
+                    # Gets specific match data
                     matchdata = (requests.get(
                         f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
-                    request += 1
+
+                    # Rate limit error handling
                     while matchdata == {'error': 'rate limit exceeded'}:
                         print('The rate limit was passed')
                         time.sleep(5)
                         matchdata = (requests.get(
                             f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
 
-                    if is_parsed(matchdata):
-                        match_list.append(matches[i]['match_id'])
-
-                        with open(f"resources/cached_matches/{matches[i]['match_id']}.json", 'w') as jsonFile:
-                            json.dump(matchdata, jsonFile)
+                    # Checks if the match is parsed
+                    if not is_parsed(matchdata):
+                        # Checks if an unparsed match is older than a week
+                        if (time.time() - matchdata['start_time']) < 604800:
+                            # Sends a parse request
+                            await send_parse_request(matches[i]['match_id'])
+                            print(
+                                f"A parse request for match {matches[i]['match_id']} was made")
                     else:
-                        unparsed += 1
+                        # Checks for any abandons
+                        for p in matchdata['players']:
+                            if p['leaver_status'] >= 2:
+                                abandon = True
+                                break
+
+                        if abandon != True:
+                            # Saves the match id to the tracked match list of this steam id
+                            match_list.append(matches[i]['match_id'])
+                            cached += 1
+
+                            # Saves the match as a JSON
+                            with open(f"resources/cached_matches/{matches[i]['match_id']}.json", 'w') as jsonFile:
+                                json.dump(matchdata, jsonFile)
+
+                            if cached >= limit:
+                                break
                 else:
+                    # Saves the match id to the tracked match list of this steam id
                     match_list.append(matches[i]['match_id'])
+                    cached += 1
+                    if cached >= limit:
+                        break
 
-            tracked_matches[account_id] = match_list
-            print(f"Done with {account_id}")
+            # Trims the match_list to 50 elements
+            if len(list(set(match_list))) > limit:
+                match_list = sorted(set(match_list), reverse=True)[:limit]
+            else:
+                match_list = sorted(set(match_list), reverse=True)
 
+            # Overwrites the previous tracked matches list
+            tracked_matches[steamid] = match_list
+            print(f"Done with {steamid}")
+
+        # Writes the tracked matches dictionary to the JSON
         with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
             json.dump(tracked_matches, jsonFile)
+
+        saved_matches = []
+        for steamid in steam_ids:
+            for i in range(len(tracked_matches[steamid])):
+                saved_matches.append(f"{tracked_matches[steamid][i]}.json")
+
+        delete = list((set(os.listdir("resources/cached_matches")
+                           ) - {".gitkeep"}) - set(saved_matches))
+
+        for d in delete:
+            os.remove("resources/cached_matches/" + d)
+            print(f"Deleted {d}")
+
         print("Done with everyone!")
-        print(request)
-        print(unparsed)
 
 
 def setup(bot):

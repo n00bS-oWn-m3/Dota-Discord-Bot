@@ -4,55 +4,55 @@
     "Percentage interval": "0 - 29",
     "Demotion upon": 0,
     "Promotion upon": 30,
-    "image attachment":"attachment://herald.png"
+    "color": "4503108"
   },
   "Guardian": {
     "MMR": "840 ~ 1560",
     "Percentage interval": "30 - 39",
     "Demotion upon": 29,
     "Promotion upon": 40,
-    "image attachment":"attachment://guardian.png"
+    "color": "10831888"
   },
   "Crusader": {
     "MMR": "1680 ~ 2400",
     "Percentage interval": "40 - 49",
     "Demotion upon": 39,
     "Promotion upon": 50,
-    "image attachment":"attachment://crusader.png"
+    "color": "1995388"
   },
   "Archon": {
     "MMR": "2520 ~ 3240",
     "Percentage interval": "50 - 59",
     "Demotion upon": 49,
     "Promotion upon": 60,
-    "image attachment":"attachment://archon.png"
+    "color": "3910802"
   },
   "Legend": {
     "MMR": "3360 ~ 4080",
     "Percentage interval": "60 - 69",
     "Demotion upon": 59,
     "Promotion upon": 70,
-    "image attachment":"attachment://legend.png"
+    "color": "15646240"
   },
   "Ancient": {
     "MMR": "4200 ~ 4920",
     "Percentage interval": "70 - 79",
     "Demotion upon": 69,
     "Promotion upon": 80,
-    "image attachment":"attachment://ancient.png"
+    "color": "10572997"
   },
   "Divine": {
     "MMR": "5040 ~ 5760",
     "Percentage interval": "80 - 89",
     "Demotion upon": 79,
     "Promotion upon": 90,
-    "image attachment":"attachment://divine.png"
+    "color": "6784992"
   },
   "Immortal": {
     "MMR": "6000 +",
     "Percentage interval": "90 - 100",
     "Demotion upon": 89,
     "Promotion upon": 100,
-    "image attachment":"attachment://immortal.png"
+    "color": "14047000"
   }
 }
