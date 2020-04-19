@@ -10,7 +10,7 @@ def get_prefix(client, message):
     if os.path.isfile('resources/json_files/prefixes.json'):
         with open('resources/json_files/prefixes.json', 'r') as f:
             prefixes = json.load(f)
-        if not message.guild.id in prefixes:
+        if not str(message.guild.id) in prefixes:
             prefixes[str(message.guild.id)] = '.'
             with open('resources/json_files/prefixes.json', 'w') as f:
                 json.dump(prefixes, f)
