@@ -15,7 +15,10 @@ bot = commands.Bot(command_prefix=get_prefix)
 async def on_ready():
     print(f'Ping: {round(bot.latency * 1000)} ms\nBot is ready.')
 
-
+# makes sure commands only work in a guild
+@bot.check
+async def globbaly_block_dm(ctx):
+    return ctx.guild is not None
 
 # load, unload and reload help to enable and disable cogs
 @bot.command()
@@ -23,12 +26,14 @@ async def on_ready():
 async def load(ctx, extension):
     """Load a specific cog"""
     bot.load_extension(f'cogs.{extension}')
+    await ctx.message.add_reaction("✅")
 
 @bot.command()
 @commands.has_role('Dev')
 async def unload(ctx, extension):
     """Unload a specific cog"""
     bot.unload_extension(f'cogs.{extension}')
+    await ctx.message.add_reaction("✅")
 
 @bot.command()
 @commands.has_role('Dev')
@@ -36,6 +41,7 @@ async def reload(ctx, extension): # bcs I'm lazy
     """Unloads and loads a specific cog"""
     bot.unload_extension(f'cogs.{extension}')
     bot.load_extension(f'cogs.{extension}')
+    await ctx.message.add_reaction("✅")
 
 
 # load all .py files (without '.py') from ./cogs
