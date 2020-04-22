@@ -9,43 +9,44 @@ import discord
 from discord.ext import commands
 import json
 
+
+# Make an API-request and return it as dictionary
 async def fetch(session, url):
     async with session.get(url) as response:
         return await response.json()
 
 
-# DOTA2 Constants
-HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
+# Load a given JSON-file
+def get_json(json_file):
+    with open(f"resources/json_files/{json_file}", "r") as f:
+        return json.load(f)
 
-# A dictionary of our account ID's
-usermapping = {}
-def refresh_usermapping(): # Might change due to register command so we want to be able to refresh it
-    with open('resources/json_files/usermapping.json', 'r') as f:
-        global usermapping
-        usermapping = json.load(f)
-refresh_usermapping() # initialize usermapping
-
-# A dictionary of all game modes
-with open('resources/json_files/game_mode.json', 'r') as f:
-    game_modes = json.load(f)
-
-# A dictionary of all lobby types
-with open('resources/json_files/lobby_type.json', 'r') as f:
-    lobby_types = json.load(f)
-
-# All ranks with extra information
-with open('resources/json_files/rankings.json', 'r') as f:
-    rankings = json.load(f)
-
-
-# Defining a function to quickly calculate the average of a list
-def average(list):
-    return sum(list) / len(list)
 
 # Update a given JSON-file
 def update_json(json_file, data):
     with open(f"resources/json_files/{json_file}", "w") as f:
         json.dump(data, f, indent=4)
+
+
+# DOTA2 Constants
+HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
+
+settings = get_json('settings.json')  # bot settings (to personalize commands)
+game_modes = get_json('game_modes.json')  # all game modes
+lobby_types = get_json('lobby_types.json')  # all lobby types
+rankings = get_json('rankings.json')  # all ranks with extra information
+usermapping = get_json('usermapping.json')  # information about registered users
+
+
+def refresh_usermapping():  # Might change due to register command so we want to be able to refresh it
+    with open('resources/json_files/usermapping.json', 'r') as f:
+        global usermapping
+        usermapping = json.load(f)
+
+
+# Defining a function to quickly calculate the average of a list
+def average(list):
+    return sum(list) / len(list)
 
 
 # Retrieves a match, whether it's cached or not
@@ -121,8 +122,8 @@ def average_benchmarks_single_match(player):
     return round(average(bench_list) * 100, 2)
 
 
-# Returns a list of the average scores over the last 50 games
-def scorecalc(steamid, game_requests=50):
+# Returns a list of the average scores over the last X games
+def scorecalc(steamid, game_requests=settings['score_games']):
     recent = []
     amount_of_games = game_requests
 
@@ -284,14 +285,14 @@ class Scoring(commands.Cog):
         await self.match(ctx, lastmatch_id, user=user)
 
     @commands.command()
-    async def score(self, ctx, user=None, game_requests=50):
-        """
+    async def score(self, ctx, user=None, game_requests=settings['score_games']):
+        f"""
         Get a player's current rank and average score.
-        Supports up to 50 games.
+        Supports up to {settings['score_games']} games.
         """
         guild_id = str(ctx.guild.id)
-        if game_requests > 50:
-            await ctx.send("This command only supports up to 50 games.\nPlease request a valid amount.")
+        if game_requests > settings['score_games']:
+            await ctx.send(f"This command only supports up to {settings['score_games']} games.\nPlease request a valid amount.")
             return
         if user is None:  # get author of message
             user = ctx.message.author.mention
@@ -324,9 +325,9 @@ class Scoring(commands.Cog):
             note = (f">>> This score is based on only {len(recent)} games out of the requested {game_requests}.\n"
                     f"No more valid games could be found.")
             embed.add_field(name="**Not Enough Games**", value=note, inline=False)
-        if game_requests != 50:
+        if game_requests != settings['score_games']:
             message = (
-                f">>> This is not the actual score of the player,\nas normally a total of 50 games are taken into consideration.")
+                f">>> This is not the actual score of the player,\nas normally a total of {settings['score_games']} games are taken into consideration.")
             embed.add_field(name="**Custom Score**", value=message, inline=False)
         embed.set_footer(text=steamid)
 
@@ -359,7 +360,6 @@ class Scoring(commands.Cog):
 
         await ctx.message.add_reaction('✅')
 
-
     @commands.command(brief="Link your Discord account to your Steam-ID.",
                       description="Link your Discord account to your Steam-ID.")
     @commands.has_permissions(administrator=True)
@@ -371,17 +371,17 @@ class Scoring(commands.Cog):
 
         # check if user already is registered
         try:
-            error_check = usermapping[guild_id] # check if guild exists in usermapping
+            error_check = usermapping[guild_id]  # check if guild exists in usermapping
         except KeyError:
-            pass # error means no user in this guild is registered
+            pass  # error means no user in this guild is registered
         else:
             try:
                 error_check = usermapping[guild_id][author_mention]
             except KeyError:
-                pass # error means user isn't registered
+                pass  # error means user isn't registered
             else:
                 await ctx.send("It looks like your Discord already is linked to another Steam Account.\n"
-                         "Please **unregister first** if you would like to register as a different Account.")
+                               "Please **unregister first** if you would like to register as a different Account.")
                 return
 
         async with aiohttp.ClientSession() as session:
@@ -404,16 +404,16 @@ class Scoring(commands.Cog):
         answer_indication = await self.ask(
             ctx, f'Would you like to link your account to **{steam_name}** on Steam?', ctx.message.author
         )
-        if answer_indication > 0: # affirmative
+        if answer_indication > 0:  # affirmative
             await ctx.send(embed=embed)
 
             refresh_usermapping()
             try:
                 name = usermapping[guild_id]
-            except KeyError: # guild isn't initialized yet
+            except KeyError:  # guild isn't initialized yet
                 usermapping[guild_id] = {}
 
-            #acces steam-id
+            # acces steam-id
             usermapping[guild_id][author_mention] = steamid
             usermapping[guild_id][author_nickname] = steamid
 
@@ -424,7 +424,7 @@ class Scoring(commands.Cog):
             }
 
             update_json('usermapping.json', usermapping)
-            refresh_usermapping() # refresh so other commands can use the updated usermapping
+            refresh_usermapping()  # refresh so other commands can use the updated usermapping
 
         else:  # negative or error
             await ctx.send(
@@ -457,7 +457,7 @@ class Scoring(commands.Cog):
         return 1 if str(reaction) == '✅' else 0
 
     @commands.command(brief="Cache recent matches.")
-    async def cache(self, ctx, limit=50):
+    async def cache(self, ctx, limit=settings['score_games']):
         guild_id = str(ctx.guild.id)
 
         # Gets the tracked_matches dictionary or makes an empty one if it doesn't exist
@@ -468,7 +468,7 @@ class Scoring(commands.Cog):
             tracked_matches = {}
         # Resets the cached variable
         cached = 0
-        
+
         steam_ids = [usermapping[guild_id][key] for key in usermapping[guild_id].keys() if str(key)[:2] == "<@"]
 
         # Main loop that iterates over all mapped steam id's
@@ -543,7 +543,7 @@ class Scoring(commands.Cog):
                     if cached >= limit:
                         break
 
-            # Trims the match_list to 50 elements
+            # Trims the match_list to X elements (settings['score_games'])
             if len(list(set(match_list))) > limit:
                 match_list = sorted(set(match_list), reverse=False)[:limit]
             else:

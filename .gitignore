@@ -4,4 +4,4 @@ resources/json_files/prefixes.json
 resources/json_files/reactions.json
 resources/cached_matches/*.json
 resources/json_files/tracked_matches.json
-resources/json_files/bot_token.json
+resources/json_files/settings.json
