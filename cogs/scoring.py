@@ -2,12 +2,16 @@
 import asyncio
 import datetime
 import os
-
+import aiohttp
 import requests
 import time
 import discord
 from discord.ext import commands
 import json
+
+async def fetch(session, url):
+    async with session.get(url) as response:
+        return await response.json()
 
 
 # DOTA2 Constants
@@ -45,19 +49,18 @@ def update_json(json_file, data):
 
 
 # Retrieves a match, whether it's cached or not
-def get_match(match_id):
+async def get_match(match_id):
     if os.path.isfile(f"resources/cached_matches/{match_id}.json"):
         with open(f"resources/cached_matches/{match_id}.json", 'r') as f:
             return json.load(f)
     else:
-        matchdata = requests.get(
-            f'https://api.opendota.com/api/matches/{match_id}').json()
+        async with aiohttp.ClientSession() as session:
+            matchdata = await fetch(session, f'https://api.opendota.com/api/matches/{match_id}')
 
-        while matchdata == {'error': 'rate limit exceeded'}:
-            print('The rate limit was passed')
-            time.sleep(5)
-            matchdata = (requests.get(
-                f"https://api.opendota.com/api/matches/{match_id}")).json()
+            while matchdata == {'error': 'rate limit exceeded'}:
+                print('The rate limit was passed')
+                await asyncio.sleep(5)
+                matchdata = await fetch(session, f'https://api.opendota.com/api/matches/{match_id}')
         if is_parsed(matchdata):
             with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
                 json.dump(matchdata, jsonFile)
@@ -156,7 +159,7 @@ class Scoring(commands.Cog):
     @commands.command(brief="Information of a match by a given ID", description="Information of a match by a given ID")
     async def match(self, ctx, match_id, user=None):
         guild_id = str(ctx.guild.id)
-        match = get_match(match_id)
+        match = await get_match(match_id)
         if match == {"error": "Not Found"}:
             await ctx.send("Please use a valid match-id.")
         if not is_parsed(match):
@@ -273,9 +276,9 @@ class Scoring(commands.Cog):
         except KeyError:
             await ctx.send("User isn't registered.")
             return
-
-        lastmatch = (requests.get(
-            f"https://api.opendota.com/api/players/{steamid}/matches/?significant=0&limit=1&offset={skip}")).json()
+        async with aiohttp.ClientSession() as session:
+            lastmatch = await fetch(
+                session, f"https://api.opendota.com/api/players/{steamid}/matches/?significant=0&limit=1&offset={skip}")
         lastmatch_id = lastmatch[0]['match_id']
 
         await self.match(ctx, lastmatch_id, user=user)
@@ -309,7 +312,7 @@ class Scoring(commands.Cog):
             tracked_matches = json.load(f)
         # I get a random match from the user and extract the personaname from it.
         # Might be a better way to do this
-        random_game = get_match(tracked_matches[steamid][0])
+        random_game = await get_match(tracked_matches[steamid][0])
         player_name = next((p['personaname'] for p in random_game['players'] if str(
             p['account_id']) == steamid), None)
         intro = f"Currently is {rank_prefix} **{obtained_rank}** with an Average Score of **{average_score}**"
@@ -381,8 +384,8 @@ class Scoring(commands.Cog):
                          "Please **unregister first** if you would like to register as a different Account.")
                 return
 
-
-        user = requests.get(f"https://api.opendota.com/api/players/{steamid}").json()
+        async with aiohttp.ClientSession() as session:
+            user = await fetch(session, f"https://api.opendota.com/api/players/{steamid}")
 
         if user == {"error": "Internal Server Error"} or not (9 <= len(steamid) <= 10) or isinstance(steamid, int):
             await ctx.send('Please use a valid Steam-ID.')
@@ -478,15 +481,14 @@ class Scoring(commands.Cog):
                 match_list = []
 
             # Gets the LIMIT most recent games with offset OFFSET
-            matches = (requests.get(
-                f"https://api.opendota.com/api/players/{steamid}/matches/")).json()
+            async with aiohttp.ClientSession() as session:
+                matches = await fetch(session, f"https://api.opendota.com/api/players/{steamid}/matches/")
 
-            # Rate limit error handling
-            while matches == {'error': 'rate limit exceeded'}:
-                print('The rate limit was passed')
-                time.sleep(5)
-                matches = (requests.get(
-                    f"https://api.opendota.com/api/players/{steamid}/matches/")).json()
+                # Rate limit error handling
+                while matches == {'error': 'rate limit exceeded'}:
+                    print('The rate limit was passed')
+                    await asyncio.sleep(5)
+                    matches = await fetch(session, f"https://api.opendota.com/api/players/{steamid}/matches/")
 
             # Iterates over all the matches retrieved in the previous bit
             for i in range(len(matches)):
@@ -497,15 +499,16 @@ class Scoring(commands.Cog):
                 if not os.path.isfile(f"resources/cached_matches/{matches[i]['match_id']}.json"):
 
                     # Gets specific match data
-                    matchdata = (requests.get(
-                        f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
+                    async with aiohttp.ClientSession() as session:
+                        matchdata = await fetch(
+                            session, f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")
 
-                    # Rate limit error handling
-                    while matchdata == {'error': 'rate limit exceeded'}:
-                        print('The rate limit was passed')
-                        time.sleep(5)
-                        matchdata = (requests.get(
-                            f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")).json()
+                        # Rate limit error handling
+                        while matchdata == {'error': 'rate limit exceeded'}:
+                            print('The rate limit was passed')
+                            await asyncio.sleep(5)
+                            matchdata = await fetch(
+                                session, f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")
 
                     # Checks if the match is parsed
                     if not is_parsed(matchdata):
