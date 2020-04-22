@@ -397,7 +397,7 @@ class Scoring(commands.Cog):
 
         embed = discord.Embed(description=intro, color=2770782)
         embed.set_author(name=steam_name or "Anonymous",
-                         icon_url=steam_icon, url=user["profile"]["profileurl"])
+                         icon_url=steam_icon, url=steam_url)
         embed.set_thumbnail(url=user["profile"]["avatarfull"])
         embed.set_footer(text=steamid)
 
@@ -409,7 +409,7 @@ class Scoring(commands.Cog):
 
             refresh_usermapping()
             try:
-                name = usermapping[guild_id]
+                error_check = usermapping[guild_id]
             except KeyError:  # guild isn't initialized yet
                 usermapping[guild_id] = {}
 
@@ -466,14 +466,15 @@ class Scoring(commands.Cog):
                 tracked_matches = json.load(f)
         else:
             tracked_matches = {}
-        # Resets the cached variable
-        cached = 0
 
         steam_ids = [usermapping[guild_id][key] for key in usermapping[guild_id].keys() if str(key)[:2] == "<@"]
 
         # Main loop that iterates over all mapped steam id's
         for steamid in steam_ids:
-
+            
+            # Resets the cached variable
+            cached = 0
+            
             # Gets the tracked matches for a particular steam id
             if steamid in tracked_matches.keys():
                 match_list = tracked_matches[steamid]
@@ -545,9 +546,9 @@ class Scoring(commands.Cog):
 
             # Trims the match_list to X elements (settings['score_games'])
             if len(list(set(match_list))) > limit:
-                match_list = sorted(set(match_list), reverse=False)[:limit]
+                match_list = sorted(set(match_list), reverse=True)[:limit]
             else:
-                match_list = sorted(set(match_list), reverse=False)
+                match_list = sorted(set(match_list), reverse=True)
 
             # Overwrites the previous tracked matches list
             tracked_matches[steamid] = list(set(match_list))
