@@ -32,8 +32,8 @@ def update_json(json_file, data):
 HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
 
 settings = get_json('settings.json')  # bot settings (to personalize commands)
-game_modes = get_json('game_modes.json')  # all game modes
-lobby_types = get_json('lobby_types.json')  # all lobby types
+game_modes = get_json('game_mode.json')  # all game modes
+lobby_types = get_json('lobby_type.json')  # all lobby types
 rankings = get_json('rankings.json')  # all ranks with extra information
 usermapping = get_json('usermapping.json')  # information about registered users
 
