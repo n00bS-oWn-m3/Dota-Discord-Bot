@@ -11,8 +11,10 @@ def get_prefix(client, message):
     if os.path.isfile('resources/json_files/prefixes.json'):
         with open('resources/json_files/prefixes.json', 'r') as f:
             prefixes = json.load(f)
+
         if not message.guild.id in prefixes:
             prefixes[str(message.guild.id)] = settings['default_prefix']
+            
             with open('resources/json_files/prefixes.json', 'w') as f:
                 json.dump(prefixes, f)
     else:
@@ -64,5 +66,6 @@ for f in os.listdir('./cogs'):
 
 # we don't want to display the example cog
 bot.unload_extension('cogs.example')
+
 
 bot.run(settings['token'])
