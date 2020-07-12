@@ -1,0 +1,6 @@
+{
+  "token": "Your token goes here",
+  "default_prefix": ".",
+  "owner_ids": ["ownerID", "optional other ownerID"],
+  "score_games": 50
+}

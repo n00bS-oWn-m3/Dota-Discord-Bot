@@ -19,7 +19,7 @@ class Tasks(commands.Cog): # cog to define tasks.
 
     @tasks.loop(minutes=1.0)
     async def update_cache(self):
-        with open('rescources/json_files/user_mapping.json', 'r') as f:
+        with open('resources/json_files/user_mapping.json', 'r') as f:
             usermapping = json.load(f)
         with open('resources/json_files/rankings.json', 'r') as f:
             rankings = json.load(f)
