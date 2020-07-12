@@ -546,9 +546,9 @@ class Scoring(commands.Cog):
 
             # Trims the match_list to X elements (settings['score_games'])
             if len(list(set(match_list))) > limit:
-                match_list = sorted(set(match_list), reverse=True)[:limit]
+                match_list = sorted(list(set(match_list)), reverse=True)[:limit]
             else:
-                match_list = sorted(set(match_list), reverse=True)
+                match_list = sorted(list(set(match_list)), reverse=True)
 
             # Overwrites the previous tracked matches list
             tracked_matches[steamid] = list(set(match_list))
