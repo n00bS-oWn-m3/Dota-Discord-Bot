@@ -112,9 +112,7 @@ def timer_converter(seconds: int):
         return f"{result[0]}"
 
 
-# Returns the benc
-
-
+# Returns the benchmarks
 def average_benchmarks_single_match(player):
     bench_list = []
     for i in player['benchmarks'].values():
@@ -266,7 +264,7 @@ class Scoring(commands.Cog):
         await ctx.send(embed=embed, file=icon)
 
     @commands.command(brief="Information about your last match.",
-                      description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user.")
+                      description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user first.")
     async def lastmatch(self, ctx, user=None, skip=0):
         guild_id = str(ctx.guild.id)
         # might want to fix this copy of code
@@ -282,7 +280,12 @@ class Scoring(commands.Cog):
                 session, f"https://api.opendota.com/api/players/{steamid}/matches/?significant=0&limit=1&offset={skip}")
         lastmatch_id = lastmatch[0]['match_id']
 
-        await self.match(ctx, lastmatch_id, user=user)
+        if lastmatch[0]['game_mode'] == 19:
+            print(skip)
+            skip += 1
+            await self.lastmatch(ctx, user=user, skip=skip)
+        else:
+            await self.match(ctx, lastmatch_id, user=user)           
 
     @commands.command()
     async def score(self, ctx, user=None, game_requests=settings['score_games']):
