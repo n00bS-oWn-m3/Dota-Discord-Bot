@@ -103,6 +103,7 @@ def timer_converter(seconds: int):
             result.insert(0, time[0].format(t=t, s="s" if t > 1 else ""))
         divisor *= time[1]
 
+
     result_list = [f"{result[0]}", f"{result[0]} and {result[1]}", f"{result[0]}, {result[1]} and {result[2]}"]
     return result_list[len(result) - 1]
 
@@ -377,8 +378,9 @@ class Scoring(commands.Cog):
         await ctx.send(embed=embed, file=icon)
 
     @commands.command(brief="Information about your last match.",
-                      description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user.")
+                      description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user first.")
     async def lastmatch(self, ctx, user=None, skip: int = 0):
+                       
         guild_id = str(ctx.guild.id)
 
         # enables `.lastmatch 2` (thus without having to specify the user) (need cleaner code)
@@ -399,7 +401,12 @@ class Scoring(commands.Cog):
                 session, f"https://api.opendota.com/api/players/{steamid}/matches/?significant=0&limit=1&offset={skip}")
         lastmatch_id = lastmatch[0]['match_id']
 
-        await self.match(ctx, lastmatch_id, user=user)
+        if lastmatch[0]['game_mode'] == 19:
+            print(skip)
+            skip += 1
+            await self.lastmatch(ctx, user=user, skip=skip)
+        else:
+            await self.match(ctx, lastmatch_id, user=user)           
 
     @commands.command()
     async def score(self, ctx, user=None, game_requests=settings['score_games']):
