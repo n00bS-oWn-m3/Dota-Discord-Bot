@@ -1,145 +1,14 @@
 # Importing the required libraries
-import asyncio
 import datetime
-import os
-import aiohttp
-import requests
 import time
 import discord
 from discord.ext import commands
+from helpers.json import *
+from helpers.api import *
+from helpers.calculator import *
+from helpers.constants import *
+from helpers.converter import *
 import json
-
-
-# Make an API-request and return it as dictionary
-async def fetch(session, url):
-    async with session.get(url) as response:
-        return await response.json()
-
-
-# Load a given JSON-file
-def get_json(json_file):
-    with open(f"resources/json_files/{json_file}", "r") as f:
-        return json.load(f)
-
-
-# Update a given JSON-file
-def update_json(json_file, data):
-    with open(f"resources/json_files/{json_file}", "w") as f:
-        json.dump(data, f, indent=4)
-
-
-# DOTA2 Constants
-HEROES = (requests.get("https://api.opendota.com/api/constants/heroes")).json()
-
-settings = get_json('settings.json')  # bot settings (to personalize commands)
-game_modes = get_json('game_mode.json')  # all game modes
-lobby_types = get_json('lobby_type.json')  # all lobby types
-rankings = get_json('rankings.json')  # all ranks with extra information
-usermapping = get_json('usermapping.json')  # information about registered users
-
-
-def refresh_usermapping():  # Might change due to register command so we want to be able to refresh it
-    with open('resources/json_files/usermapping.json', 'r') as f:
-        global usermapping
-        usermapping = json.load(f)
-
-
-# Defining a function to quickly calculate the average of a list
-def average(list):
-    return sum(list) / len(list)
-
-
-# Retrieves a match, whether it's cached or not
-async def get_match(match_id):
-    if os.path.isfile(f"resources/cached_matches/{match_id}.json"):
-        with open(f"resources/cached_matches/{match_id}.json", 'r') as f:
-            return json.load(f)
-    else:
-        async with aiohttp.ClientSession() as session:
-            matchdata = await fetch(session, f'https://api.opendota.com/api/matches/{match_id}')
-
-            while matchdata == {'error': 'rate limit exceeded'}:
-                print('The rate limit was passed')
-                await asyncio.sleep(5)
-                matchdata = await fetch(session, f'https://api.opendota.com/api/matches/{match_id}')
-        if is_parsed(matchdata):
-            with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
-                json.dump(matchdata, jsonFile)
-        return matchdata
-
-
-# request a parse by specific match-id
-async def send_parse_request(match_id):
-    requests.post(f'https://api.opendota.com/api/request/{match_id}')
-
-
-# check if a game is already parsed
-def is_parsed(match):
-    return match.get('version', None) is not None
-
-
-# calculate the rank, based on an average score:
-def get_rank(average_score):
-    for key in rankings:  # calculating the rank
-        if rankings[key]['Demotion upon'] < average_score < rankings[key]['Promotion upon']:
-            return key
-
-
-# convert the time in seconds to a nice string (up to hours)
-def timer_converter(seconds: int):
-    seconds = abs(seconds)
-    if seconds == 0:
-        return "the start of the game"
-    times = [
-        ["{t} second{s}", 60],
-        ["{t} minute{s}", 60],
-        ["{t} hour{s}", 24]
-    ]
-    result = []
-    divisor = 1
-    for time in times:
-        t = int((seconds // divisor) % time[1])
-        if t > 0:
-            result.insert(0, time[0].format(t=t, s="s" if t > 1 else ""))
-        divisor *= time[1]
-
-
-    result_list = [f"{result[0]}", f"{result[0]} and {result[1]}", f"{result[0]}, {result[1]} and {result[2]}"]
-    return result_list[len(result) - 1]
-
-
-# return avg score of a player
-def average_benchmarks_single_match(player):
-    bench_list = []
-    for i in player['benchmarks'].values():
-        bench_list.append(i['pct'])
-    return round(average(bench_list) * 100, 2)
-
-
-# Returns a list of the average scores over the last X games
-def scorecalc(steamid, game_requests=settings['score_games']):
-    recent = []
-
-    # Start of the main loop
-    with open("resources/json_files/tracked_matches.json", 'r') as f:
-        tracked_matches = json.load(f)
-
-    if len(tracked_matches[str(steamid)]) < game_requests:
-        game_requests = len(tracked_matches[str(steamid)])
-
-    for a in range(game_requests):
-        with open(f"resources/cached_matches/{tracked_matches[str(steamid)][a]}.json", 'r') as f:
-            generaldata = json.load(f)
-        matchdata = generaldata['players']
-
-        # Gets the data of the requested user
-        player = next((p for p in matchdata if str(
-            p['account_id']) == steamid), None)
-
-        # Calculating the score and appending it to a list
-        recent.append(average_benchmarks_single_match(player))
-
-    return recent
 
 
 # callable cache for functions that don't have access to ctx (such as a task)
@@ -154,55 +23,54 @@ async def cache(guild_id: int, limit=settings['score_games']):
     steam_ids = [usermapping[str(guild_id)][key] for key in usermapping[str(guild_id)].keys() if str(key)[:2] == "<@"]
 
     # Main loop that iterates over all mapped steam id's
-    for steamid in steam_ids:
+    for steam_id in steam_ids:
 
         # Resets the cached variable
         cached = 0
 
         # Gets the tracked matches for a particular steam id
-        if steamid in tracked_matches.keys():
-            match_list = tracked_matches[steamid]
-        else:
-            match_list = []
+        match_list = set(tracked_matches.get(steam_id, []))
 
         # Gets the LIMIT most recent games with offset OFFSET
         async with aiohttp.ClientSession() as session:
-            matches = await fetch(session, f"https://api.opendota.com/api/players/{steamid}/matches/")
+            matches = await fetch(session, f"https://api.opendota.com/api/players/{steam_id}/matches/")
 
             # Rate limit error handling
             while matches == {'error': 'rate limit exceeded'}:
                 print('The rate limit was passed')
                 await asyncio.sleep(5)
-                matches = await fetch(session, f"https://api.opendota.com/api/players/{steamid}/matches/")
+                matches = await fetch(session, f"https://api.opendota.com/api/players/{steam_id}/matches/")
 
         # Iterates over all the matches retrieved in the previous bit
-        for i in range(len(matches)):
+        i = 0
+        while i < len(matches) and cached < limit:
             # Resets the abandon check
             abandon = False
+            match_id = matches[i]['match_id']
 
             # Checks if the match is stored and whether or not it's balanced
-            if not os.path.isfile(f"resources/cached_matches/{matches[i]['match_id']}.json"):
+            if not os.path.isfile(f"resources/cached_matches/{match_id}.json"):
 
                 # Gets specific match data
                 async with aiohttp.ClientSession() as session:
                     matchdata = await fetch(
-                        session, f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")
+                        session, f"https://api.opendota.com/api/matches/{match_id}")
 
                     # Rate limit error handling
                     while matchdata == {'error': 'rate limit exceeded'}:
                         print('The rate limit was passed')
                         await asyncio.sleep(5)
                         matchdata = await fetch(
-                            session, f"https://api.opendota.com/api/matches/{matches[i]['match_id']}")
+                            session, f"https://api.opendota.com/api/matches/{match_id}")
 
                 # Checks if the match is parsed
                 if not is_parsed(matchdata):
                     # Checks if an unparsed match is older than a week
                     if (time.time() - matchdata['start_time']) < 604800:
                         # Sends a parse request
-                        await send_parse_request(matches[i]['match_id'])
+                        await send_parse_request(match_id)
                         print(
-                            f"A parse request for match {matches[i]['match_id']} was made")
+                            f"A parse request for match {match_id} was made")
                 else:
                     # Checks for any abandons
                     for p in matchdata['players']:
@@ -212,48 +80,33 @@ async def cache(guild_id: int, limit=settings['score_games']):
 
                     if not abandon:
                         # Saves the match id to the tracked match list of this steam id
-                        match_list.append(matches[i]['match_id'])
+                        match_list.add(match_id)
                         cached += 1
 
                         # Saves the match as a JSON
-                        with open(f"resources/cached_matches/{matches[i]['match_id']}.json", 'w') as jsonFile:
+                        with open(f"resources/cached_matches/{match_id}.json", 'w') as jsonFile:
                             json.dump(matchdata, jsonFile, indent=4)
-
-                        if cached >= limit:
-                            break
             else:
                 # Saves the match id to the tracked match list of this steam id
-                match_list.append(matches[i]['match_id'])
+                match_list.add(match_id)
                 cached += 1
-                if cached >= limit:
-                    break
+            i += 1
 
         # Trims the match_list to X elements (settings['score_games'])
-        if len(list(set(match_list))) > limit:
-            match_list = sorted(list(set(match_list)), reverse=True)[:limit]
-        else:
-            match_list = sorted(list(set(match_list)), reverse=True)
+        match_list = list(sorted(match_list, reverse=True))[:limit]
 
         # Overwrites the previous tracked_matches list
-        tracked_matches[steamid] = list(set(match_list))
-        print(f"Done with {steamid}")
+        tracked_matches[steam_id] = match_list
+        print(f"Done with {steam_id}")
 
-    # Writes the tracked matches dictionary to the JSON
-    with open(f"resources/json_files/tracked_matches.json", 'w') as jsonFile:
-        json.dump(tracked_matches, jsonFile)
+    update_json('tracked_matches.json', tracked_matches)
 
-    saved_matches = []
-    for steamid in steam_ids:
-        for i in range(len(tracked_matches[steamid])):
-            saved_matches.append(f"{tracked_matches[steamid][i]}.json")
+    saved_matches = set()
+    for steam_id in tracked_matches.keys():
+        for match in tracked_matches[steam_id]:
+            saved_matches.add(f"{match}.json")
 
-    delete = list((set(os.listdir("resources/cached_matches")
-                       ) - {".gitkeep"}) - set(saved_matches))
-
-    # TODO: possible solution regarding the cache issue (see cogs/tasks.py) (doesn't work yet)
-    # tracked_set = set(x for y in tracked_matches.values() for x in y)
-    # delete = list((set(os.listdir("resources/cached_matches")
-    #                    ) - {".gitkeep"}) ^ tracked_set)
+    delete = set(os.listdir("resources/cached_matches")) - {".gitkeep"} - saved_matches
 
     for d in delete:
         os.remove("resources/cached_matches/" + d)
@@ -380,7 +233,7 @@ class Scoring(commands.Cog):
     @commands.command(brief="Information about your last match.",
                       description="Information about your last match.\nWhen specifying the amount to be skipped, be sure to specify the user first.")
     async def lastmatch(self, ctx, user=None, skip: int = 0):
-                       
+
         guild_id = str(ctx.guild.id)
 
         # enables `.lastmatch 2` (thus without having to specify the user) (need cleaner code)
@@ -406,7 +259,7 @@ class Scoring(commands.Cog):
             skip += 1
             await self.lastmatch(ctx, user=user, skip=skip)
         else:
-            await self.match(ctx, lastmatch_id, user=user)           
+            await self.match(ctx, lastmatch_id, user=user)
 
     @commands.command()
     async def score(self, ctx, user=None, game_requests=settings['score_games']):

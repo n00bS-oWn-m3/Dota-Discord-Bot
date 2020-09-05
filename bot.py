@@ -66,6 +66,4 @@ for f in os.listdir('./cogs'):
 
 # we don't want to display the example cog
 bot.unload_extension('cogs.example')
-
-
 bot.run(settings['token'])
