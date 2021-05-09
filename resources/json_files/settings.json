@@ -1,7 +1,7 @@
 {
-  "token": "Your token goes here",
+  "token": "NjkxMDExMzUwNjEyNDEwNDk5.XnZweA.vuAWgK5Dj_nVj3is3V6hn5b6cAA",
   "default_prefix": ".",
-  "owner_ids": ["ownerID", "optional other ownerID"],
+  "owner_ids": ["850960158", "189996985"],
   "score_games": 50,
   "bot_dev_role": "Dev"
 }
